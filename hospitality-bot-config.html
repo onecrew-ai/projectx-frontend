@@ -1,0 +1,2868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HospBot Config Suite</title>
+
+  <!-- =====================================================================
+       FONTS: "Share Tech Mono" for monospace data readouts,
+              "Orbitron" for headers (sci-fi / technical aesthetic)
+       ===================================================================== -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&family=Syne:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- sql.js — SQLite compiled to WebAssembly, used for .db export/import -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+
+  <style>
+    /* ===================================================================
+       CSS CUSTOM PROPERTIES — Central design token system
+       =================================================================== */
+    :root {
+      --bg-void:       #060a10;   /* Deepest background */
+      --bg-panel:      #0c1220;   /* Panel surfaces */
+      --bg-panel-alt:  #0f1829;   /* Alternate panel shade */
+      --bg-input:      #0a1018;   /* Input fields */
+      --border-dim:    #1a2a40;   /* Subtle borders */
+      --border-glow:   #1e4a7a;   /* Active borders */
+      --accent-cyan:   #00d4ff;   /* Primary accent */
+      --accent-blue:   #0077cc;   /* Secondary accent */
+      --accent-amber:  #ffaa00;   /* Warning / event highlight */
+      --accent-green:  #00ff88;   /* Success / active state */
+      --accent-red:    #ff3355;   /* Error / delete */
+      --text-primary:  #c8dff0;   /* Main readable text */
+      --text-dim:      #4a6a8a;   /* Muted labels */
+      --text-mono:     #7ab8d4;   /* Monospace data values */
+      --font-display:  'Orbitron', monospace;
+      --font-mono:     'Share Tech Mono', monospace;
+      --font-body:     'Syne', sans-serif;
+      --radius-sm:     3px;
+      --radius-md:     6px;
+      --shadow-panel:  0 4px 24px rgba(0, 30, 60, 0.8);
+      --glow-cyan:     0 0 12px rgba(0, 212, 255, 0.3);
+    }
+
+    /* ===================================================================
+       RESET & BASE
+       =================================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+    }
+
+    /* Thin scrollbars to match dark theme */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg-void); }
+    ::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 3px; }
+
+    /* ===================================================================
+       APP SHELL LAYOUT — Header / Sidebar / Canvas / Inspector
+       =================================================================== */
+    #app {
+      display: grid;
+      grid-template-rows: 48px 1fr 28px;
+      grid-template-columns: 220px 1fr 280px;
+      grid-template-areas:
+        "header  header   header"
+        "sidebar canvas   inspector"
+        "status  status   status";
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ===================================================================
+       HEADER BAR
+       =================================================================== */
+    #header {
+      grid-area: header;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+      position: relative;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--accent-cyan);
+      letter-spacing: 2px;
+      text-shadow: var(--glow-cyan);
+      white-space: nowrap;
+    }
+    .logo span { color: var(--text-dim); font-weight: 400; }
+
+    .header-divider {
+      width: 1px; height: 24px;
+      background: var(--border-dim);
+    }
+
+    /* Project name editable field in header */
+    #project-name-display {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-mono);
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border-dim);
+      padding: 2px 6px;
+      width: 180px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #project-name-display:focus { border-color: var(--accent-cyan); }
+
+    /* Header action buttons */
+    .hbtn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 5px 12px;
+      border: 1px solid var(--border-glow);
+      background: transparent;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+    .hbtn:hover { background: rgba(0,212,255,0.1); box-shadow: var(--glow-cyan); }
+    .hbtn.primary { border-color: var(--accent-green); color: var(--accent-green); }
+    .hbtn.primary:hover { background: rgba(0,255,136,0.1); box-shadow: 0 0 12px rgba(0,255,136,0.3); }
+    .hbtn.danger  { border-color: var(--accent-red); color: var(--accent-red); }
+
+    .header-spacer { flex: 1; }
+
+    /* Coordinate readout in header */
+    .coord-hud {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .coord-hud span { color: var(--text-mono); }
+
+    /* ===================================================================
+       LEFT SIDEBAR — Tools + Project Metadata
+       =================================================================== */
+    #sidebar {
+      grid-area: sidebar;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border-dim);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Section headers inside panels */
+    .section-header {
+      font-family: var(--font-display);
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      padding: 10px 12px 6px;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-header::before {
+      content: '';
+      width: 3px; height: 10px;
+      background: var(--accent-cyan);
+      display: inline-block;
+    }
+
+    /* -----------------------------------------------------------------------
+       TOOL PALETTE
+       ----------------------------------------------------------------------- */
+    #tool-palette {
+      padding: 10px 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+    }
+
+    .tool-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      text-align: center;
+      user-select: none;
+    }
+    .tool-btn .icon { font-size: 18px; line-height: 1; }
+    .tool-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+    .tool-btn.active {
+      border-color: var(--accent-cyan);
+      background: rgba(0,212,255,0.08);
+      color: var(--accent-cyan);
+      box-shadow: var(--glow-cyan);
+    }
+
+    /* -----------------------------------------------------------------------
+       PROJECT METADATA FORM
+       ----------------------------------------------------------------------- */
+    .meta-form {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .form-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+    .form-input, .form-select, .form-textarea {
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--accent-cyan);
+    }
+    .form-select option { background: var(--bg-panel); }
+    .form-textarea { resize: vertical; min-height: 60px; font-size: 11px; }
+
+    /* Map import zone */
+    #map-import-zone {
+      margin: 8px 12px;
+      border: 1px dashed var(--border-glow);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-input);
+    }
+    #map-import-zone:hover { border-color: var(--accent-cyan); background: rgba(0,212,255,0.04); }
+    #map-import-zone .import-icon { font-size: 22px; color: var(--text-dim); }
+    #map-import-zone p {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    #map-import-zone p span { color: var(--accent-cyan); }
+
+    /* Graph tools sub-section */
+    #graph-tools {
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .graph-btn {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 5px 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .graph-btn:hover { border-color: var(--accent-blue); color: var(--accent-cyan); }
+
+    /* Snap threshold slider */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .slider-row label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--accent-cyan);
+    }
+    .slider-val {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-mono);
+      min-width: 30px;
+    }
+
+    /* ===================================================================
+       CANVAS AREA
+       =================================================================== */
+    #canvas-wrapper {
+      grid-area: canvas;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-void);
+      /* Subtle grid overlay via CSS */
+      background-image:
+        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    #main-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      cursor: crosshair;
+      /* Actual cursor set dynamically by JS */
+    }
+
+    /* Floating zoom controls */
+    #zoom-controls {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      z-index: 10;
+    }
+    .zoom-btn {
+      width: 28px; height: 28px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-glow);
+      color: var(--accent-cyan);
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .zoom-btn:hover { background: rgba(0,212,255,0.15); }
+
+    /* Zoom level indicator */
+    #zoom-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    /* Origin crosshair label */
+    #origin-label {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--accent-amber);
+      pointer-events: none;
+    }
+
+    /* ===================================================================
+       RIGHT INSPECTOR PANEL
+       =================================================================== */
+    #inspector {
+      grid-area: inspector;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-dim);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Inspector tab bar */
+    #inspector-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .itab {
+      flex: 1;
+      padding: 8px 4px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      cursor: pointer;
+      text-align: center;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .itab.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+      background: rgba(0,212,255,0.04);
+    }
+
+    /* Inspector tab panels */
+    .itab-content { display: none; flex-direction: column; }
+    .itab-content.visible { display: flex; }
+
+    /* Properties panel content */
+    .prop-section { padding: 10px 12px; border-bottom: 1px solid var(--border-dim); }
+    .prop-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 0;
+      gap: 8px;
+    }
+    .prop-key {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      min-width: 90px;
+    }
+    .prop-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-mono);
+      text-align: right;
+      flex: 1;
+    }
+    .prop-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+    .prop-input:focus { border-color: var(--accent-cyan); }
+    .prop-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      width: 100%;
+    }
+
+    /* Neighbors list */
+    .neighbor-chip {
+      display: inline-block;
+      background: rgba(0,119,204,0.2);
+      border: 1px solid var(--accent-blue);
+      border-radius: 2px;
+      padding: 1px 5px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--accent-cyan);
+      margin: 2px;
+    }
+
+    /* "Nothing selected" placeholder */
+    .empty-state {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.8;
+    }
+    .empty-icon { font-size: 28px; opacity: 0.3; margin-bottom: 8px; }
+
+    /* ===================================================================
+       EVENTS PANEL
+       =================================================================== */
+    .event-card {
+      margin: 8px 10px;
+      background: var(--bg-panel-alt);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .event-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: rgba(255,170,0,0.08);
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .event-wp-id {
+      font-family: var(--font-display);
+      font-size: 10px;
+      color: var(--accent-amber);
+    }
+    .event-remove-btn {
+      background: none;
+      border: none;
+      color: var(--accent-red);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .trigger-section {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .trigger-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    /* Action list */
+    .action-list { list-style: none; }
+    .action-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 0;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-mono);
+    }
+    .action-type-badge {
+      padding: 1px 5px;
+      background: rgba(0,119,204,0.25);
+      border-radius: 2px;
+      color: var(--accent-cyan);
+      font-size: 9px;
+      min-width: 45px;
+      text-align: center;
+    }
+    .action-del {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .action-del:hover { color: var(--accent-red); }
+
+    /* Add action form */
+    .add-action-row {
+      display: flex;
+      gap: 4px;
+      padding: 5px 10px;
+      align-items: center;
+    }
+    .add-action-row select, .add-action-row input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      outline: none;
+    }
+    .add-action-btn {
+      background: none;
+      border: 1px solid var(--accent-green);
+      color: var(--accent-green);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 7px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+
+    /* ===================================================================
+       ADJACENCY LIST PANEL
+       =================================================================== */
+    .adj-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+    .adj-table th {
+      color: var(--text-dim);
+      font-weight: normal;
+      letter-spacing: 1px;
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--border-dim);
+      text-align: left;
+    }
+    .adj-table td {
+      padding: 4px 8px;
+      border-bottom: 1px solid rgba(26,42,64,0.5);
+      color: var(--text-mono);
+      vertical-align: top;
+    }
+    .adj-table tr:hover td { background: rgba(0,212,255,0.04); }
+
+    /* ===================================================================
+       STATUS BAR
+       =================================================================== */
+    #status-bar {
+      grid-area: status;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .status-item span { color: var(--text-mono); }
+    .status-sep {
+      width: 1px; height: 14px;
+      background: var(--border-dim);
+    }
+    #status-mode {
+      margin-left: auto;
+      color: var(--accent-cyan);
+      letter-spacing: 1px;
+    }
+
+    /* ===================================================================
+       MODAL DIALOG — Used for dense-path config and confirm dialogs
+       =================================================================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6,10,16,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(3px);
+    }
+    .modal-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      min-width: 340px;
+      box-shadow: var(--shadow-panel);
+    }
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 12px;
+      color: var(--accent-cyan);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .modal-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 5px 14px;
+      border: 1px solid var(--border-glow);
+      background: transparent;
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s;
+    }
+    .modal-btn.confirm { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+    .modal-btn.confirm:hover { background: rgba(0,212,255,0.1); }
+    .modal-btn:hover { background: rgba(255,255,255,0.05); }
+
+    /* ===================================================================
+       NOTIFICATION TOAST
+       =================================================================== */
+    #toast {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius-md);
+      padding: 8px 20px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 2000;
+      transition: all 0.3s;
+      box-shadow: var(--glow-cyan);
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Dense-path mode indicator shown on canvas */
+    #dense-mode-indicator {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,170,0,0.15);
+      border: 1px solid var(--accent-amber);
+      border-radius: var(--radius-md);
+      padding: 5px 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-amber);
+      pointer-events: none;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- =========================================================================
+     APP SHELL
+     ========================================================================= -->
+<div id="app">
+
+  <!-- ======================================================================
+       HEADER
+       ====================================================================== -->
+  <header id="header">
+    <div class="logo">HOSPBOT<span> // CONFIG</span></div>
+    <div class="header-divider"></div>
+    <input id="project-name-display" type="text" value="untitled_project" placeholder="project name" title="Project Name" />
+    <div class="header-divider"></div>
+
+    <!-- Map file import buttons -->
+    <button class="hbtn" id="btn-import-yaml" title="Import ROS2 Map YAML">⬆ YAML</button>
+    <button class="hbtn" id="btn-import-pgm"  title="Import PGM Map Image">⬆ PGM</button>
+    <div class="header-divider"></div>
+
+    <!-- DB export / import -->
+    <button class="hbtn primary" id="btn-export-db">💾 EXPORT .DB</button>
+    <button class="hbtn"         id="btn-import-db">📂 IMPORT .DB</button>
+    <button class="hbtn danger"  id="btn-clear">✕ CLEAR</button>
+
+    <div class="header-spacer"></div>
+
+    <!-- Live coordinate display (updated on mousemove) -->
+    <div class="coord-hud">
+      X: <span id="hud-x">0.00</span>m &nbsp; Y: <span id="hud-y">0.00</span>m
+    </div>
+  </header>
+
+  <!-- ======================================================================
+       LEFT SIDEBAR
+       ====================================================================== -->
+  <aside id="sidebar">
+
+    <!-- TOOL PALETTE -->
+    <div class="section-header">Tools</div>
+    <div id="tool-palette">
+      <button class="tool-btn active" data-tool="select"   title="Select / Drag (S)">
+        <span class="icon">↖</span>SELECT
+      </button>
+      <button class="tool-btn" data-tool="waypoint" title="Place Waypoint (W)">
+        <span class="icon">◎</span>WAYPOINT
+      </button>
+      <button class="tool-btn" data-tool="edge"     title="Draw Edge (E)">
+        <span class="icon">⟶</span>EDGE
+      </button>
+      <button class="tool-btn" data-tool="event"    title="Anchor Event (V)">
+        <span class="icon">⚡</span>EVENT
+      </button>
+      <button class="tool-btn" data-tool="dense"    title="Dense Path (D)">
+        <span class="icon">⋯</span>DENSE
+      </button>
+      <button class="tool-btn" data-tool="pan"      title="Pan Map (P)">
+        <span class="icon">✥</span>PAN
+      </button>
+    </div>
+
+    <!-- SNAP / INTERPOLATION SETTINGS -->
+    <div class="section-header">Graph Settings</div>
+    <div id="graph-tools">
+      <div class="slider-row">
+        <label>SNAP px</label>
+        <input type="range" id="snap-threshold" min="5" max="60" value="20" />
+        <span class="slider-val" id="snap-val">20</span>
+      </div>
+      <div class="slider-row">
+        <label>DENSE px</label>
+        <input type="range" id="dense-interval" min="10" max="100" value="30" />
+        <span class="slider-val" id="dense-val">30</span>
+      </div>
+
+      <!-- Default edge property controls -->
+      <div class="form-group" style="margin-top:6px;">
+        <label class="form-label">Default Direction</label>
+        <select class="form-select" id="default-direction">
+          <option value="bidirectional">↔ Bidirectional</option>
+          <option value="forward_only">→ Forward Only</option>
+          <option value="reverse_only">← Reverse Only</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Speed (m/s)</label>
+        <input type="number" class="form-input" id="default-speed" value="0.5" min="0.1" max="5" step="0.1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Lane Width (m)</label>
+        <input type="number" class="form-input" id="default-lane-width" value="0.8" min="0.1" max="5" step="0.1" />
+      </div>
+    </div>
+
+    <!-- PROJECT METADATA -->
+    <div class="section-header">Entity Schema</div>
+    <div class="meta-form">
+      <div class="form-group">
+        <label class="form-label">Entity Name *</label>
+        <input type="text" class="form-input" id="meta-name" placeholder="my_robot_01" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bot Type</label>
+        <select class="form-select" id="meta-bot-type">
+          <option value="R1">R1</option>
+          <option value="R2">R2</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model Type</label>
+        <select class="form-select" id="meta-model-type">
+          <option value="hospitality">hospitality</option>
+          <option value="kiosk">kiosk</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="meta-description" placeholder="Optional description..."></textarea>
+      </div>
+    </div>
+
+    <!-- MAP IMPORT DROPZONE -->
+    <div class="section-header">Map Import</div>
+    <div id="map-import-zone" title="Click to import map files">
+      <div class="import-icon">🗺</div>
+      <p>Click to import <span>.yaml</span> or <span>.pgm</span></p>
+      <p id="map-import-status" style="margin-top:4px; color: var(--text-dim);">No map loaded</p>
+    </div>
+
+    <!-- MAP CALIBRATION READOUT -->
+    <div class="meta-form" id="map-calibration" style="padding-bottom: 16px;">
+      <div class="form-group">
+        <label class="form-label">Resolution (m/px)</label>
+        <input type="number" class="form-input" id="map-resolution" value="0.05" step="0.001" min="0.001" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Origin X (m)</label>
+        <input type="number" class="form-input" id="map-origin-x" value="0" step="0.1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Origin Y (m)</label>
+        <input type="number" class="form-input" id="map-origin-y" value="0" step="0.1" />
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ======================================================================
+       CANVAS WRAPPER (Main workspace)
+       ====================================================================== -->
+  <div id="canvas-wrapper">
+    <canvas id="main-canvas"></canvas>
+
+    <!-- Dense-path mode banner -->
+    <div id="dense-mode-indicator">⋯ DENSE PATH MODE — Click P1 then P2</div>
+
+    <!-- Zoom controls -->
+    <div id="zoom-controls">
+      <button class="zoom-btn" id="zoom-in"  title="Zoom In">+</button>
+      <div id="zoom-label">100%</div>
+      <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
+      <button class="zoom-btn" id="zoom-fit" title="Fit to Window">⊡</button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       RIGHT INSPECTOR PANEL
+       ====================================================================== -->
+  <aside id="inspector">
+
+    <!-- Tab bar: Properties | Events | Adjacency -->
+    <div id="inspector-tabs">
+      <div class="itab active" data-tab="props">PROPS</div>
+      <div class="itab"        data-tab="events">EVENTS</div>
+      <div class="itab"        data-tab="graph">GRAPH</div>
+    </div>
+
+    <!-- ── PROPERTIES TAB ── -->
+    <div class="itab-content visible" id="tab-props">
+      <div id="props-nothing" class="empty-state">
+        <div class="empty-icon">◎</div>
+        No element selected.<br />
+        Use <b>SELECT</b> tool<br />and click a waypoint or edge.
+      </div>
+
+      <!-- Waypoint properties (shown when WP is selected) -->
+      <div id="props-waypoint" style="display:none;">
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Waypoint</div>
+          <div class="prop-row">
+            <span class="prop-key">ID</span>
+            <span class="prop-val" id="wp-id-display">—</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">Label</span>
+            <input type="text" class="prop-input" id="wp-label-input" placeholder="optional label" />
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">X (world m)</span>
+            <span class="prop-val" id="wp-x-display">—</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">Y (world m)</span>
+            <span class="prop-val" id="wp-y-display">—</span>
+          </div>
+        </div>
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Neighbors</div>
+          <div id="wp-neighbors-chips"></div>
+        </div>
+      </div>
+
+      <!-- Edge properties (shown when edge is selected) -->
+      <div id="props-edge" style="display:none;">
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Edge</div>
+          <div class="prop-row">
+            <span class="prop-key">ID</span>
+            <span class="prop-val" id="edge-id-display">—</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">From → To</span>
+            <span class="prop-val" id="edge-endpoints">—</span>
+          </div>
+          <div class="form-group" style="margin-top:8px;">
+            <label class="form-label">Direction</label>
+            <select class="prop-select" id="edge-direction-input">
+              <option value="bidirectional">↔ Bidirectional</option>
+              <option value="forward_only">→ Forward Only</option>
+              <option value="reverse_only">← Reverse Only</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:6px;">
+            <label class="form-label">Speed Limit (m/s)</label>
+            <input type="number" class="prop-input" id="edge-speed-input" min="0.1" max="10" step="0.1" />
+          </div>
+          <div class="form-group" style="margin-top:6px;">
+            <label class="form-label">Lane Width (m)</label>
+            <input type="number" class="prop-input" id="edge-lanewidth-input" min="0.1" max="10" step="0.1" />
+          </div>
+          <button class="graph-btn" id="btn-apply-edge" style="margin-top:8px;">✓ Apply Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EVENTS TAB ── -->
+    <div class="itab-content" id="tab-events">
+      <div class="section-header" style="justify-content: space-between;">
+        Spatial Events
+        <span style="font-family: var(--font-mono); font-size:9px; color:var(--accent-amber);">
+          Use EVENT tool to anchor
+        </span>
+      </div>
+      <div id="events-list">
+        <!-- Dynamically generated event cards appear here -->
+        <div class="empty-state">
+          <div class="empty-icon">⚡</div>
+          No events yet.<br />
+          Select <b>EVENT</b> tool<br />and click a waypoint.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ADJACENCY / GRAPH TAB ── -->
+    <div class="itab-content" id="tab-graph">
+      <div class="section-header">Adjacency List</div>
+      <div style="overflow-x:auto; padding: 4px 0;">
+        <table class="adj-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Label</th>
+              <th>Neighbors</th>
+            </tr>
+          </thead>
+          <tbody id="adj-tbody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ======================================================================
+       STATUS BAR
+       ====================================================================== -->
+  <div id="status-bar">
+    <div class="status-item">WP: <span id="stat-wp">0</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item">EDGES: <span id="stat-edges">0</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item">EVENTS: <span id="stat-events">0</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item">ZOOM: <span id="stat-zoom">100</span>%</div>
+    <div class="status-item" id="status-mode">◈ SELECT</div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- =========================================================================
+     TOAST NOTIFICATION
+     ========================================================================= -->
+<div id="toast"></div>
+
+<!-- =========================================================================
+     HIDDEN FILE INPUTS (triggered programmatically)
+     ========================================================================= -->
+<input type="file" id="file-yaml" accept=".yaml,.yml" style="display:none" />
+<input type="file" id="file-pgm"  accept=".pgm"       style="display:none" />
+<input type="file" id="file-db"   accept=".db"        style="display:none" />
+
+<!-- =========================================================================
+     MAIN APPLICATION SCRIPT
+     ========================================================================= -->
+<script>
+/* ============================================================================
+   HOSPITALITY BOT CONFIGURATION SUITE
+   Full single-file implementation
+   Sections:
+     1. Application State
+     2. Canvas & Viewport
+     3. Coordinate System & Map Calibration
+     4. Rendering Engine
+     5. Waypoint & Edge Operations
+     6. Tool Handlers (Select, Waypoint, Edge, Event, Dense, Pan)
+     7. Inspector Panel
+     8. Events / Action Pipeline
+     9. File I/O — YAML, PGM, SQLite
+    10. Keyboard Shortcuts
+    11. UI Initialization & Event Listeners
+   ============================================================================ */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §1  APPLICATION STATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Central mutable state object for the whole application */
+const STATE = {
+
+  // ── Project Metadata ──────────────────────────────────────────────────────
+  project: {
+    name:        'untitled_project',
+    entityName:  '',
+    botType:     'R1',
+    modelType:   'hospitality',
+    description: ''
+  },
+
+  // ── Map / Environment ─────────────────────────────────────────────────────
+  map: {
+    image:      null,     // HTMLImageElement or null
+    imageWidth:  0,
+    imageHeight: 0,
+    resolution:  0.05,    // meters per pixel (from YAML)
+    originX:     0,       // world X of the map's bottom-left corner (m)
+    originY:     0,       // world Y of the map's bottom-left corner (m)
+    // Note: ROS2 convention – origin is [x, y, yaw]
+    // We only use x, y here; yaw rotation is not implemented
+  },
+
+  // ── Graph — Adjacency List ────────────────────────────────────────────────
+  // waypoints: Map<id:string, {id, x, y, label, neighbors: Set<id>}>
+  waypoints: new Map(),
+
+  // edges: Map<id:string, {id, from:wpId, to:wpId, direction, speedLimit, laneWidth}>
+  edges:     new Map(),
+
+  // Counter for unique ID generation
+  nextWpId:   0,
+  nextEdgeId: 0,
+
+  // ── Spatial Events ────────────────────────────────────────────────────────
+  // events: Map<waypointId, {onEntry: Action[], onExit: Action[]}>
+  // Action = {type: 'Dock'|'Wait'|'Speak'|'Print'|'Custom', param: any}
+  events: new Map(),
+
+  // ── Selection ─────────────────────────────────────────────────────────────
+  selectedWpId:   null,
+  selectedEdgeId: null,
+
+  // ── Interaction ───────────────────────────────────────────────────────────
+  currentTool: 'select',   // 'select'|'waypoint'|'edge'|'event'|'dense'|'pan'
+  edgeStartWpId: null,     // first click of edge tool
+  densePath: { p1: null }, // first point for dense-path mode
+
+  // ── Viewport Transform ────────────────────────────────────────────────────
+  view: {
+    panX:  0,    // canvas pan offset in CSS pixels
+    panY:  0,
+    zoom:  1.0,  // scale factor
+  },
+
+  // ── Dragging ──────────────────────────────────────────────────────────────
+  drag: {
+    active:    false,
+    wpId:      null,   // waypoint being dragged
+    startMx:   0,
+    startMy:   0,
+    startWpX:  0,
+    startWpY:  0,
+  },
+
+  // ── Pan drag ──────────────────────────────────────────────────────────────
+  panDrag: {
+    active:  false,
+    startMx: 0,
+    startMy: 0,
+    startPX: 0,
+    startPY: 0,
+  },
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  snapThreshold:   20,   // pixels
+  denseInterval:   30,   // pixels
+  defaultDirection: 'bidirectional',
+  defaultSpeed:     0.5,
+  defaultLaneWidth: 0.8,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §2  CANVAS & VIEWPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+const canvas  = document.getElementById('main-canvas');
+const ctx     = canvas.getContext('2d');
+const wrapper = document.getElementById('canvas-wrapper');
+
+/** Resize canvas to fill its wrapper container */
+function resizeCanvas() {
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+  render();
+}
+
+/** Convert mouse event coordinates to canvas logical coordinates
+ *  (accounts for device-pixel-ratio and CSS vs actual canvas dimensions)
+ */
+function mouseToCanvas(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+  };
+}
+
+/** Convert canvas coordinates → world coordinates (applying zoom and pan)
+ *  World space: origin at bottom-left of map image, Y-up (ROS convention)
+ */
+function canvasToWorld(cx, cy) {
+  // Undo viewport transform: world = (canvas - pan) / zoom
+  const wx = (cx - STATE.view.panX) / STATE.view.zoom;
+  const wy = (cy - STATE.view.panY) / STATE.view.zoom;
+  return { wx, wy };
+}
+
+/** Convert world coordinates → canvas coordinates */
+function worldToCanvas(wx, wy) {
+  return {
+    cx: wx * STATE.view.zoom + STATE.view.panX,
+    cy: wy * STATE.view.zoom + STATE.view.panY,
+  };
+}
+
+/** Convert canvas-space (image pixels) → real-world metres
+ *  Using ROS2 YAML calibration: world_m = origin_m + pixel * resolution
+ *  Note: In ROS2 conventions the image Y-axis is inverted (row 0 = top of
+ *  image = highest Y coordinate). We handle this flip here.
+ */
+function pixelToMetres(px, py) {
+  const { resolution, originX, originY, imageHeight } = STATE.map;
+  const mx = originX + px * resolution;
+  // Flip Y: row 0 is the top of the image, which corresponds to the highest
+  // real-world Y value. Bottom of image = originY.
+  const my = originY + (imageHeight - py) * resolution;
+  return { mx, my };
+}
+
+/** Metres → pixel space (inverse of pixelToMetres) */
+function metresToPixel(mx, my) {
+  const { resolution, originX, originY, imageHeight } = STATE.map;
+  const px = (mx - originX) / resolution;
+  const py = imageHeight - (my - originY) / resolution;
+  return { px, py };
+}
+
+/** Apply zoom centred on a screen point */
+function applyZoom(factor, screenX, screenY) {
+  const newZoom = Math.min(8, Math.max(0.05, STATE.view.zoom * factor));
+  // Adjust pan so the point under cursor stays fixed
+  STATE.view.panX = screenX - (screenX - STATE.view.panX) * (newZoom / STATE.view.zoom);
+  STATE.view.panY = screenY - (screenY - STATE.view.panY) * (newZoom / STATE.view.zoom);
+  STATE.view.zoom = newZoom;
+  updateZoomLabel();
+  render();
+}
+
+/** Fit the entire map (or all waypoints) into the viewport */
+function fitView() {
+  if (STATE.map.image) {
+    const pad = 40;
+    const scaleX = (canvas.width  - pad * 2) / STATE.map.imageWidth;
+    const scaleY = (canvas.height - pad * 2) / STATE.map.imageHeight;
+    STATE.view.zoom = Math.min(scaleX, scaleY);
+    STATE.view.panX = pad + (canvas.width  - pad*2 - STATE.map.imageWidth  * STATE.view.zoom) / 2;
+    STATE.view.panY = pad + (canvas.height - pad*2 - STATE.map.imageHeight * STATE.view.zoom) / 2;
+  } else if (STATE.waypoints.size > 0) {
+    // Fit to bounding box of all waypoints
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    STATE.waypoints.forEach(wp => {
+      minX = Math.min(minX, wp.x); maxX = Math.max(maxX, wp.x);
+      minY = Math.min(minY, wp.y); maxY = Math.max(maxY, wp.y);
+    });
+    const pad = 60;
+    const dw = maxX - minX || 100;
+    const dh = maxY - minY || 100;
+    STATE.view.zoom = Math.min(
+      (canvas.width  - pad*2) / dw,
+      (canvas.height - pad*2) / dh,
+      4
+    );
+    STATE.view.panX = canvas.width  / 2 - ((minX + maxX) / 2) * STATE.view.zoom;
+    STATE.view.panY = canvas.height / 2 - ((minY + maxY) / 2) * STATE.view.zoom;
+  } else {
+    // Nothing loaded – reset to identity
+    STATE.view.zoom = 1;
+    STATE.view.panX = 0;
+    STATE.view.panY = 0;
+  }
+  updateZoomLabel();
+  render();
+}
+
+function updateZoomLabel() {
+  const pct = Math.round(STATE.view.zoom * 100);
+  document.getElementById('zoom-label').textContent  = pct + '%';
+  document.getElementById('stat-zoom').textContent   = pct;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §3  COORDINATE UTILITY
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Distance between two points (in canvas/pixel space) */
+function dist(ax, ay, bx, by) {
+  return Math.hypot(bx - ax, by - ay);
+}
+
+/** Find the nearest waypoint to a canvas-space point (cx, cy).
+ *  Returns {wpId, distPx} or null if no waypoints.
+ */
+function nearestWaypoint(cx, cy) {
+  let best = null, bestD = Infinity;
+  STATE.waypoints.forEach((wp, id) => {
+    const { cx: wx, cy: wy } = worldToCanvas(wp.x, wp.y);
+    const d = dist(cx, cy, wx, wy);
+    if (d < bestD) { bestD = d; best = id; }
+  });
+  return best !== null ? { wpId: best, distPx: bestD } : null;
+}
+
+/** Find the nearest edge to a canvas-space point.
+ *  Uses point-to-segment distance.
+ */
+function nearestEdge(cx, cy, threshold = 8) {
+  let bestEdge = null, bestD = Infinity;
+  STATE.edges.forEach((edge, id) => {
+    const a = STATE.waypoints.get(edge.from);
+    const b = STATE.waypoints.get(edge.to);
+    if (!a || !b) return;
+    const { cx: ax, cy: ay } = worldToCanvas(a.x, a.y);
+    const { cx: bx, cy: by } = worldToCanvas(b.x, b.y);
+    const d = pointToSegmentDist(cx, cy, ax, ay, bx, by);
+    if (d < bestD) { bestD = d; bestEdge = id; }
+  });
+  return bestEdge !== null && bestD <= threshold ? { edgeId: bestEdge, distPx: bestD } : null;
+}
+
+/** Perpendicular distance from point (px,py) to segment (ax,ay)→(bx,by) */
+function pointToSegmentDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return dist(px, py, ax, ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return dist(px, py, ax + t*dx, ay + t*dy);
+}
+
+/** Check if a line segment (p1→p2) intersects with (p3→p4).
+ *  Returns intersection point in canvas coords or null.
+ */
+function segmentsIntersect(p1, p2, p3, p4) {
+  const d1x = p2.x - p1.x, d1y = p2.y - p1.y;
+  const d2x = p4.x - p3.x, d2y = p4.y - p3.y;
+  const cross = d1x * d2y - d1y * d2x;
+  if (Math.abs(cross) < 1e-10) return null; // parallel
+  const dx = p3.x - p1.x, dy = p3.y - p1.y;
+  const t = (dx * d2y - dy * d2x) / cross;
+  const u = (dx * d1y - dy * d1x) / cross;
+  if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+    return {
+      x: p1.x + t * d1x,
+      y: p1.y + t * d1y,
+    };
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §4  RENDERING ENGINE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Master render call — clears and redraws everything */
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  // Apply viewport transform: pan then scale
+  ctx.translate(STATE.view.panX, STATE.view.panY);
+  ctx.scale(STATE.view.zoom, STATE.view.zoom);
+
+  // 1. Draw map image
+  if (STATE.map.image) {
+    // The image is drawn in "pixel space" (world coords = pixel coords here)
+    // with origin at (0,0) top-left of image
+    ctx.drawImage(STATE.map.image, 0, 0);
+  }
+
+  // 2. Draw origin indicator (bottom-left = (0,0) in our pixel space)
+  if (STATE.map.image) {
+    const ox = 0, oy = STATE.map.imageHeight;
+    ctx.save();
+    ctx.strokeStyle = '#ffaa00';
+    ctx.lineWidth = 1.5 / STATE.view.zoom;
+    ctx.beginPath(); ctx.moveTo(ox, oy - 20 / STATE.view.zoom); ctx.lineTo(ox, oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + 20 / STATE.view.zoom, oy); ctx.stroke();
+    ctx.fillStyle = '#ffaa00';
+    ctx.font = `${10 / STATE.view.zoom}px Share Tech Mono`;
+    ctx.fillText('ORIGIN (0,0)', ox + 4 / STATE.view.zoom, oy - 4 / STATE.view.zoom);
+    ctx.restore();
+  }
+
+  // 3. Draw edges (before waypoints so WPs appear on top)
+  STATE.edges.forEach(edge => renderEdge(edge));
+
+  // 4. Draw in-progress edge (while using edge tool)
+  if (STATE.currentTool === 'edge' && STATE.edgeStartWpId && STATE._edgeMousePos) {
+    const startWp = STATE.waypoints.get(STATE.edgeStartWpId);
+    if (startWp) {
+      ctx.save();
+      ctx.setLineDash([4 / STATE.view.zoom, 4 / STATE.view.zoom]);
+      ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+      ctx.lineWidth = 1 / STATE.view.zoom;
+      ctx.beginPath();
+      ctx.moveTo(startWp.x, startWp.y);
+      ctx.lineTo(STATE._edgeMousePos.wx, STATE._edgeMousePos.wy);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // 5. Draw waypoints
+  STATE.waypoints.forEach(wp => renderWaypoint(wp));
+
+  ctx.restore();
+
+  // ── Update stats ──────────────────────────────────────────────────────────
+  document.getElementById('stat-wp').textContent    = STATE.waypoints.size;
+  document.getElementById('stat-edges').textContent  = STATE.edges.size;
+  document.getElementById('stat-events').textContent = STATE.events.size;
+}
+
+/** Render a single edge with visual overlays:
+ *  - Lane width as semi-transparent buffer
+ *  - Direction arrows
+ *  - Speed limit text label
+ */
+function renderEdge(edge) {
+  const a = STATE.waypoints.get(edge.from);
+  const b = STATE.waypoints.get(edge.to);
+  if (!a || !b) return;
+
+  const ax = a.x, ay = a.y;
+  const bx = b.x, by = b.y;
+  const isSelected = STATE.selectedEdgeId === edge.id;
+
+  // ── Lane width buffer ─────────────────────────────────────────────────────
+  // Convert lane width from metres to pixels (pixel = metres / resolution)
+  const laneWidthPx = edge.laneWidth / STATE.map.resolution;
+  ctx.save();
+  ctx.strokeStyle = isSelected
+    ? 'rgba(255,170,0,0.18)'
+    : 'rgba(0,119,204,0.12)';
+  ctx.lineWidth = laneWidthPx;
+  ctx.lineCap   = 'round';
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Edge line ─────────────────────────────────────────────────────────────
+  ctx.save();
+  ctx.strokeStyle = isSelected ? '#ffaa00' : (STATE.selectedWpId ? '#1e5a8a' : '#1e8acc');
+  ctx.lineWidth   = isSelected ? 2 / STATE.view.zoom : 1.5 / STATE.view.zoom;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Direction arrows ──────────────────────────────────────────────────────
+  const midX = (ax + bx) / 2;
+  const midY = (ay + by) / 2;
+  const angle = Math.atan2(by - ay, bx - ax);
+
+  drawArrow(midX, midY, angle, edge.direction, isSelected);
+
+  // ── Speed limit label ─────────────────────────────────────────────────────
+  const fontSize = Math.max(7, 9 / STATE.view.zoom);
+  ctx.save();
+  ctx.font      = `${fontSize}px Share Tech Mono`;
+  ctx.fillStyle = isSelected ? '#ffaa00' : '#4a9fc0';
+  ctx.textAlign = 'center';
+  // Offset label perpendicular to edge
+  const perpX = -Math.sin(angle) * 10 / STATE.view.zoom;
+  const perpY =  Math.cos(angle) * 10 / STATE.view.zoom;
+  ctx.fillText(`${edge.speedLimit}m/s`, midX + perpX, midY + perpY);
+  ctx.restore();
+}
+
+/** Draw directional arrow(s) at a point on an edge */
+function drawArrow(x, y, angle, direction, isSelected) {
+  const headLen = 8 / STATE.view.zoom;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.strokeStyle = isSelected ? '#ffaa00' : '#00d4ff';
+  ctx.lineWidth   = 1.5 / STATE.view.zoom;
+  ctx.lineCap     = 'round';
+
+  if (direction === 'bidirectional' || direction === 'forward_only') {
+    // Forward arrow →
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-headLen, -headLen * 0.5);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-headLen, headLen * 0.5);
+    ctx.stroke();
+  }
+  if (direction === 'bidirectional' || direction === 'reverse_only') {
+    // Backward arrow ←
+    ctx.beginPath();
+    ctx.moveTo(-headLen * 1.5, 0);
+    ctx.lineTo(-headLen * 0.5, -headLen * 0.5);
+    ctx.moveTo(-headLen * 1.5, 0);
+    ctx.lineTo(-headLen * 0.5, headLen * 0.5);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/** Render a single waypoint node */
+function renderWaypoint(wp) {
+  const { cx, cy } = worldToCanvas(wp.x, wp.y);
+  // Work in screen space so sizes are stable regardless of zoom
+  ctx.save();
+  // Reset transform to draw in screen space
+  ctx.restore();
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  const isSelected   = STATE.selectedWpId === wp.id;
+  const hasEvent     = STATE.events.has(wp.id);
+  const radius       = isSelected ? 9 : 7;
+
+  // ── Event glow ring ───────────────────────────────────────────────────────
+  if (hasEvent) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius + 5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,170,0,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // ── Outer ring ────────────────────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + 2, 0, Math.PI * 2);
+  ctx.fillStyle = isSelected
+    ? 'rgba(255,170,0,0.15)'
+    : 'rgba(0,212,255,0.08)';
+  ctx.fill();
+
+  // ── Main circle ───────────────────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.fillStyle   = isSelected ? '#ffaa00' : (hasEvent ? '#cc7700' : '#0a1018');
+  ctx.strokeStyle = isSelected ? '#ffaa00' : (hasEvent ? '#ffaa00' : '#00d4ff');
+  ctx.lineWidth   = isSelected ? 2 : 1.5;
+  ctx.fill();
+  ctx.stroke();
+
+  // ── Inner dot ─────────────────────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = isSelected ? '#ffaa00' : '#00d4ff';
+  ctx.fill();
+
+  // ── ID / label text ───────────────────────────────────────────────────────
+  const label = wp.label || `W${wp.id}`;
+  ctx.font      = '9px Share Tech Mono';
+  ctx.fillStyle = isSelected ? '#ffaa00' : '#7ab8d4';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, 0, -(radius + 5));
+
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §5  WAYPOINT & EDGE OPERATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Create a new waypoint at pixel coords (wx, wy) (world/pixel space).
+ *  Implements Snap-to-Existing: if a waypoint is within snapThreshold pixels,
+ *  returns the existing waypoint's ID instead of creating a new one.
+ *  Returns the waypoint ID (new or snapped).
+ */
+function addWaypoint(wx, wy) {
+  // Convert world coords back to canvas coords for distance check
+  const { cx, cy } = worldToCanvas(wx, wy);
+
+  // ── Snap logic ────────────────────────────────────────────────────────────
+  const nearest = nearestWaypoint(cx, cy);
+  if (nearest && nearest.distPx <= STATE.snapThreshold) {
+    return nearest.wpId; // Snap: reuse existing waypoint
+  }
+
+  // ── Create new waypoint ───────────────────────────────────────────────────
+  const id  = String(STATE.nextWpId++);
+  const wp  = { id, x: wx, y: wy, label: '', neighbors: new Set() };
+  STATE.waypoints.set(id, wp);
+  return id;
+}
+
+/** Create a directed edge between two waypoints.
+ *  Also checks for intersection with existing edges, inserting a new
+ *  waypoint at the intersection point when found.
+ */
+function addEdge(fromId, toId, overrides = {}) {
+  if (fromId === toId) return null;
+
+  // ── Prevent duplicate edges ───────────────────────────────────────────────
+  let duplicate = null;
+  STATE.edges.forEach(e => {
+    if ((e.from === fromId && e.to === toId) ||
+        (e.from === toId   && e.to === fromId)) {
+      duplicate = e.id;
+    }
+  });
+  if (duplicate) return duplicate;
+
+  // ── Check for intersections with existing edges ───────────────────────────
+  const waFrom = STATE.waypoints.get(fromId);
+  const waTo   = STATE.waypoints.get(toId);
+  if (!waFrom || !waTo) return null;
+
+  const newP1 = { x: waFrom.x, y: waFrom.y };
+  const newP2 = { x: waTo.x,   y: waTo.y   };
+
+  STATE.edges.forEach((existingEdge) => {
+    const ea = STATE.waypoints.get(existingEdge.from);
+    const eb = STATE.waypoints.get(existingEdge.to);
+    if (!ea || !eb) return;
+    const pt = segmentsIntersect(newP1, newP2, { x: ea.x, y: ea.y }, { x: eb.x, y: eb.y });
+    if (pt) {
+      // Create intersection waypoint, split existing edge
+      const iId = addWaypoint(pt.x, pt.y);
+      if (iId !== existingEdge.from && iId !== existingEdge.to) {
+        // Split existing edge at intersection
+        const oldFrom = existingEdge.from;
+        const oldTo   = existingEdge.to;
+        STATE.edges.delete(existingEdge.id);
+        updateAdjacency(oldFrom, oldTo, 'remove');
+        createEdgeRecord(oldFrom, iId, existingEdge);
+        createEdgeRecord(iId, oldTo, existingEdge);
+        showToast('Edge intersection: waypoint created');
+      }
+    }
+  });
+
+  return createEdgeRecord(fromId, toId, overrides);
+}
+
+/** Internal: insert edge record and update adjacency lists */
+function createEdgeRecord(fromId, toId, props = {}) {
+  const id = String(STATE.nextEdgeId++);
+  const edge = {
+    id,
+    from:       fromId,
+    to:         toId,
+    direction:  props.direction  || STATE.defaultDirection,
+    speedLimit: props.speedLimit || STATE.defaultSpeed,
+    laneWidth:  props.laneWidth  || STATE.defaultLaneWidth,
+  };
+  STATE.edges.set(id, edge);
+
+  // Update adjacency list
+  const fWp = STATE.waypoints.get(fromId);
+  const tWp = STATE.waypoints.get(toId);
+  if (fWp) fWp.neighbors.add(toId);
+  if (tWp && edge.direction === 'bidirectional') tWp.neighbors.add(fromId);
+
+  return id;
+}
+
+/** Update adjacency when removing an edge */
+function updateAdjacency(fromId, toId, op) {
+  const fWp = STATE.waypoints.get(fromId);
+  const tWp = STATE.waypoints.get(toId);
+  if (op === 'remove') {
+    if (fWp) fWp.neighbors.delete(toId);
+    if (tWp) tWp.neighbors.delete(fromId);
+  }
+}
+
+/** Delete a waypoint and all connected edges */
+function deleteWaypoint(id) {
+  STATE.waypoints.delete(id);
+  STATE.events.delete(id);
+
+  // Remove all edges that reference this waypoint
+  const toDelete = [];
+  STATE.edges.forEach((edge, eid) => {
+    if (edge.from === id || edge.to === id) toDelete.push(eid);
+  });
+  toDelete.forEach(eid => {
+    const e = STATE.edges.get(eid);
+    if (e) updateAdjacency(e.from, e.to, 'remove');
+    STATE.edges.delete(eid);
+  });
+
+  // Remove from other waypoints' neighbor lists
+  STATE.waypoints.forEach(wp => wp.neighbors.delete(id));
+
+  if (STATE.selectedWpId === id) STATE.selectedWpId = null;
+}
+
+/** Delete an edge */
+function deleteEdge(id) {
+  const edge = STATE.edges.get(id);
+  if (!edge) return;
+  updateAdjacency(edge.from, edge.to, 'remove');
+  STATE.edges.delete(id);
+  if (STATE.selectedEdgeId === id) STATE.selectedEdgeId = null;
+}
+
+/** Dense path: interpolate waypoints between two canvas-space positions
+ *  at fixed intervals (STATE.denseInterval pixels), linking them as a chain.
+ */
+function createDensePath(wx1, wy1, wx2, wy2) {
+  // Work in world/pixel coordinates
+  const totalDist = dist(wx1, wy1, wx2, wy2);
+  // Convert denseInterval from screen-pixels to world-pixels
+  const intervalWorld = STATE.denseInterval / STATE.view.zoom;
+  const steps = Math.max(1, Math.floor(totalDist / intervalWorld));
+  const dx = (wx2 - wx1) / steps;
+  const dy = (wy2 - wy1) / steps;
+
+  let prevId = addWaypoint(wx1, wy1);
+  for (let i = 1; i <= steps; i++) {
+    const x = wx1 + dx * i;
+    const y = wy1 + dy * i;
+    const nextId = addWaypoint(x, y);
+    addEdge(prevId, nextId);
+    prevId = nextId;
+  }
+  showToast(`Dense path: ${steps} segments created`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §6  TOOL HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Set the active tool and update UI state */
+function setTool(toolName) {
+  STATE.currentTool  = toolName;
+  STATE.edgeStartWpId = null;
+  STATE.densePath.p1  = null;
+  STATE._edgeMousePos = null;
+
+  // Update tool button active states
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tool === toolName);
+  });
+
+  // Update cursor and status bar
+  const cursors = {
+    select:  'default',
+    waypoint:'crosshair',
+    edge:    'crosshair',
+    event:   'cell',
+    dense:   'crosshair',
+    pan:     'grab',
+  };
+  canvas.style.cursor = cursors[toolName] || 'default';
+
+  const labels = {
+    select:  '◈ SELECT',
+    waypoint:'◎ WAYPOINT',
+    edge:    '⟶ EDGE',
+    event:   '⚡ EVENT',
+    dense:   '⋯ DENSE PATH',
+    pan:     '✥ PAN',
+  };
+  document.getElementById('status-mode').textContent = labels[toolName] || toolName.toUpperCase();
+
+  // Dense mode banner
+  document.getElementById('dense-mode-indicator').style.display =
+    toolName === 'dense' ? 'block' : 'none';
+}
+
+// ── Canvas mouse event handlers ───────────────────────────────────────────────
+
+canvas.addEventListener('mousedown', e => {
+  const { x, y } = mouseToCanvas(e);
+  const { wx, wy } = canvasToWorld(x, y);
+
+  // Middle-button or Space+drag → pan regardless of tool
+  if (e.button === 1) {
+    startPan(x, y);
+    e.preventDefault();
+    return;
+  }
+
+  if (STATE.currentTool === 'pan') {
+    startPan(x, y);
+    return;
+  }
+
+  if (STATE.currentTool === 'select') {
+    handleSelectMouseDown(x, y, wx, wy);
+  } else if (STATE.currentTool === 'waypoint') {
+    handleWaypointPlace(wx, wy);
+  } else if (STATE.currentTool === 'edge') {
+    handleEdgeClick(x, y, wx, wy);
+  } else if (STATE.currentTool === 'event') {
+    handleEventToggle(x, y);
+  } else if (STATE.currentTool === 'dense') {
+    handleDenseClick(wx, wy);
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const { x, y } = mouseToCanvas(e);
+  const { wx, wy } = canvasToWorld(x, y);
+
+  // Update HUD coordinates (convert pixel coords to real-world metres)
+  const { mx, my } = pixelToMetres(wx, wy);
+  document.getElementById('hud-x').textContent = mx.toFixed(2);
+  document.getElementById('hud-y').textContent = my.toFixed(2);
+
+  if (STATE.panDrag.active) {
+    doPan(x, y);
+    return;
+  }
+
+  if (STATE.drag.active && STATE.currentTool === 'select') {
+    doDragWaypoint(wx, wy);
+    return;
+  }
+
+  // Update live edge preview while edge tool is active
+  if (STATE.currentTool === 'edge' && STATE.edgeStartWpId) {
+    STATE._edgeMousePos = { wx, wy };
+    render();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
+  if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); updateAdjacencyTable(); }
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const { x, y } = mouseToCanvas(e);
+  applyZoom(e.deltaY < 0 ? 1.15 : 0.87, x, y);
+}, { passive: false });
+
+// Prevent context menu on right-click
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); cancelCurrentAction(); });
+
+// ── Tool-specific handlers ────────────────────────────────────────────────────
+
+function handleSelectMouseDown(cx, cy, wx, wy) {
+  // Check for waypoint hit first
+  const nearWp = nearestWaypoint(cx, cy);
+  if (nearWp && nearWp.distPx <= 14) {
+    // Start dragging the waypoint
+    const wp = STATE.waypoints.get(nearWp.wpId);
+    STATE.selectedWpId   = nearWp.wpId;
+    STATE.selectedEdgeId = null;
+    STATE.drag = {
+      active:    true,
+      wpId:      nearWp.wpId,
+      startMx:   cx,
+      startMy:   cy,
+      startWpX:  wp.x,
+      startWpY:  wp.y,
+    };
+    updateInspector();
+    render();
+    return;
+  }
+
+  // Check for edge hit
+  const nearEdge = nearestEdge(cx, cy, 10);
+  if (nearEdge) {
+    STATE.selectedEdgeId = nearEdge.edgeId;
+    STATE.selectedWpId   = null;
+    updateInspector();
+    render();
+    return;
+  }
+
+  // Clicked empty space: deselect
+  STATE.selectedWpId   = null;
+  STATE.selectedEdgeId = null;
+  updateInspector();
+  render();
+}
+
+function doDragWaypoint(wx, wy) {
+  if (!STATE.drag.active) return;
+  const wp = STATE.waypoints.get(STATE.drag.wpId);
+  if (!wp) return;
+  wp.x = wx;
+  wp.y = wy;
+  render();
+}
+
+function startPan(x, y) {
+  STATE.panDrag = { active: true, startMx: x, startMy: y, startPX: STATE.view.panX, startPY: STATE.view.panY };
+  canvas.style.cursor = 'grabbing';
+}
+
+function doPan(x, y) {
+  STATE.view.panX = STATE.panDrag.startPX + (x - STATE.panDrag.startMx);
+  STATE.view.panY = STATE.panDrag.startPY + (y - STATE.panDrag.startMy);
+  render();
+}
+
+function handleWaypointPlace(wx, wy) {
+  const id = addWaypoint(wx, wy);
+  STATE.selectedWpId   = id;
+  STATE.selectedEdgeId = null;
+  updateInspector();
+  updateAdjacencyTable();
+  render();
+}
+
+function handleEdgeClick(cx, cy, wx, wy) {
+  // Must click near an existing waypoint
+  const nearWp = nearestWaypoint(cx, cy);
+  if (!nearWp || nearWp.distPx > STATE.snapThreshold * 1.5) {
+    // If far from any WP, cancel
+    if (!STATE.edgeStartWpId) return;
+    // Create a new waypoint here and connect
+    const newId = addWaypoint(wx, wy);
+    addEdge(STATE.edgeStartWpId, newId);
+    STATE.edgeStartWpId = null;
+    STATE._edgeMousePos = null;
+    updateAdjacencyTable();
+    render();
+    return;
+  }
+
+  const clickedId = nearWp.wpId;
+
+  if (!STATE.edgeStartWpId) {
+    // First click: set start waypoint
+    STATE.edgeStartWpId = clickedId;
+    STATE.selectedWpId  = clickedId;
+    render();
+  } else {
+    // Second click: complete edge
+    if (clickedId !== STATE.edgeStartWpId) {
+      addEdge(STATE.edgeStartWpId, clickedId);
+    }
+    STATE.edgeStartWpId = null;
+    STATE._edgeMousePos = null;
+    updateAdjacencyTable();
+    render();
+  }
+}
+
+function handleEventToggle(cx, cy) {
+  // Find nearest waypoint within threshold
+  const nearWp = nearestWaypoint(cx, cy);
+  if (!nearWp || nearWp.distPx > STATE.snapThreshold * 1.5) {
+    showToast('No waypoint nearby. Click on a waypoint to anchor event.');
+    return;
+  }
+  const wpId = nearWp.wpId;
+
+  if (STATE.events.has(wpId)) {
+    // Toggle off: remove event anchor
+    STATE.events.delete(wpId);
+    showToast(`Event removed from W${wpId}`);
+  } else {
+    // Toggle on: create new event anchor with empty action arrays
+    STATE.events.set(wpId, { onEntry: [], onExit: [] });
+    showToast(`Event anchored to W${wpId}`);
+  }
+  renderEventsPanel();
+  render();
+}
+
+function handleDenseClick(wx, wy) {
+  if (!STATE.densePath.p1) {
+    // First point
+    STATE.densePath.p1 = { wx, wy };
+    addWaypoint(wx, wy); // Place start WP
+    showToast('Dense path: P1 set — click P2');
+    render();
+  } else {
+    // Second point: generate dense path
+    const { wx: wx1, wy: wy1 } = STATE.densePath.p1;
+    createDensePath(wx1, wy1, wx, wy);
+    STATE.densePath.p1 = null;
+    updateAdjacencyTable();
+    render();
+  }
+}
+
+/** Cancel whatever in-progress action the user started */
+function cancelCurrentAction() {
+  STATE.edgeStartWpId = null;
+  STATE._edgeMousePos = null;
+  STATE.densePath.p1  = null;
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §7  INSPECTOR PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Update the properties panel based on current selection */
+function updateInspector() {
+  const nothingEl  = document.getElementById('props-nothing');
+  const wpEl       = document.getElementById('props-waypoint');
+  const edgeEl     = document.getElementById('props-edge');
+
+  if (STATE.selectedWpId !== null) {
+    const wp = STATE.waypoints.get(STATE.selectedWpId);
+    if (!wp) { nothingEl.style.display=''; wpEl.style.display='none'; edgeEl.style.display='none'; return; }
+
+    nothingEl.style.display  = 'none';
+    wpEl.style.display       = 'block';
+    edgeEl.style.display     = 'none';
+
+    document.getElementById('wp-id-display').textContent = wp.id;
+    document.getElementById('wp-label-input').value      = wp.label || '';
+
+    // Convert pixel coords to world metres for display
+    const { mx, my } = pixelToMetres(wp.x, wp.y);
+    document.getElementById('wp-x-display').textContent = mx.toFixed(3) + ' m';
+    document.getElementById('wp-y-display').textContent = my.toFixed(3) + ' m';
+
+    // Render neighbor chips
+    const chipsEl = document.getElementById('wp-neighbors-chips');
+    chipsEl.innerHTML = '';
+    wp.neighbors.forEach(nid => {
+      const chip = document.createElement('span');
+      chip.className = 'neighbor-chip';
+      chip.textContent = `W${nid}`;
+      chipsEl.appendChild(chip);
+    });
+    if (wp.neighbors.size === 0) {
+      chipsEl.innerHTML = '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">No connections</span>';
+    }
+
+  } else if (STATE.selectedEdgeId !== null) {
+    const edge = STATE.edges.get(STATE.selectedEdgeId);
+    if (!edge) { nothingEl.style.display=''; wpEl.style.display='none'; edgeEl.style.display='none'; return; }
+
+    nothingEl.style.display  = 'none';
+    wpEl.style.display       = 'none';
+    edgeEl.style.display     = 'block';
+
+    document.getElementById('edge-id-display').textContent  = edge.id;
+    document.getElementById('edge-endpoints').textContent   = `W${edge.from} → W${edge.to}`;
+    document.getElementById('edge-direction-input').value   = edge.direction;
+    document.getElementById('edge-speed-input').value       = edge.speedLimit;
+    document.getElementById('edge-lanewidth-input').value   = edge.laneWidth;
+
+  } else {
+    nothingEl.style.display = '';
+    wpEl.style.display      = 'none';
+    edgeEl.style.display    = 'none';
+  }
+}
+
+/** Update the adjacency list table in the GRAPH tab */
+function updateAdjacencyTable() {
+  const tbody = document.getElementById('adj-tbody');
+  tbody.innerHTML = '';
+  STATE.waypoints.forEach(wp => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${wp.id}</td>
+      <td>${wp.label || '—'}</td>
+      <td>${Array.from(wp.neighbors).map(n => `W${n}`).join(', ') || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Listen for waypoint label changes
+document.getElementById('wp-label-input').addEventListener('input', e => {
+  if (STATE.selectedWpId === null) return;
+  const wp = STATE.waypoints.get(STATE.selectedWpId);
+  if (wp) { wp.label = e.target.value; render(); updateAdjacencyTable(); }
+});
+
+// Apply edge property changes
+document.getElementById('btn-apply-edge').addEventListener('click', () => {
+  if (STATE.selectedEdgeId === null) return;
+  const edge = STATE.edges.get(STATE.selectedEdgeId);
+  if (!edge) return;
+
+  const newDir   = document.getElementById('edge-direction-input').value;
+  const newSpeed = parseFloat(document.getElementById('edge-speed-input').value) || 0.5;
+  const newLane  = parseFloat(document.getElementById('edge-lanewidth-input').value) || 0.8;
+
+  // Update adjacency when direction changes
+  const fWp = STATE.waypoints.get(edge.from);
+  const tWp = STATE.waypoints.get(edge.to);
+
+  // Clear old adjacency for this edge's direction
+  if (fWp) fWp.neighbors.delete(edge.to);
+  if (tWp) tWp.neighbors.delete(edge.from);
+
+  edge.direction  = newDir;
+  edge.speedLimit = newSpeed;
+  edge.laneWidth  = newLane;
+
+  // Re-apply adjacency with new direction
+  if (fWp) fWp.neighbors.add(edge.to);
+  if (tWp && newDir === 'bidirectional') tWp.neighbors.add(edge.from);
+
+  updateAdjacencyTable();
+  render();
+  showToast('Edge updated');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §8  EVENTS & ACTION PIPELINE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Supported action types and their parameter labels */
+const ACTION_TYPES = {
+  Dock:   { param: null,         label: 'Dock (no params)' },
+  Wait:   { param: 'seconds',    label: 'Wait (seconds)'   },
+  Speak:  { param: 'text',       label: 'Speak (text)'     },
+  Print:  { param: 'payload',    label: 'Print (payload)'  },
+  Custom: { param: 'logic',      label: 'Custom (script)'  },
+};
+
+/** Re-render the entire events list panel */
+function renderEventsPanel() {
+  const listEl = document.getElementById('events-list');
+  listEl.innerHTML = '';
+
+  if (STATE.events.size === 0) {
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚡</div>
+        No events yet.<br />Select <b>EVENT</b> tool<br />and click a waypoint.
+      </div>`;
+    return;
+  }
+
+  STATE.events.forEach((event, wpId) => {
+    const card = document.createElement('div');
+    card.className = 'event-card';
+
+    card.innerHTML = `
+      <div class="event-card-header">
+        <span class="event-wp-id">⚡ Waypoint W${wpId} ${STATE.waypoints.get(wpId)?.label ? '— ' + STATE.waypoints.get(wpId).label : ''}</span>
+        <button class="event-remove-btn" data-wpid="${wpId}" title="Remove event">✕</button>
+      </div>
+
+      <!-- ON ENTRY triggers -->
+      <div class="trigger-section">
+        <div class="trigger-label">▶ On Entry</div>
+        <ul class="action-list" id="entry-actions-${wpId}">
+          ${renderActionItems(event.onEntry, wpId, 'entry')}
+        </ul>
+        <!-- Add entry action -->
+        <div class="add-action-row">
+          <select id="entry-type-${wpId}">
+            ${Object.keys(ACTION_TYPES).map(k => `<option value="${k}">${k}</option>`).join('')}
+          </select>
+          <input type="text" id="entry-param-${wpId}" placeholder="param" />
+          <button class="add-action-btn" data-wpid="${wpId}" data-trigger="entry">+</button>
+        </div>
+      </div>
+
+      <!-- ON EXIT triggers -->
+      <div class="trigger-section" style="border-bottom:none;">
+        <div class="trigger-label">◀ On Exit</div>
+        <ul class="action-list" id="exit-actions-${wpId}">
+          ${renderActionItems(event.onExit, wpId, 'exit')}
+        </ul>
+        <!-- Add exit action -->
+        <div class="add-action-row">
+          <select id="exit-type-${wpId}">
+            ${Object.keys(ACTION_TYPES).map(k => `<option value="${k}">${k}</option>`).join('')}
+          </select>
+          <input type="text" id="exit-param-${wpId}" placeholder="param" />
+          <button class="add-action-btn" data-wpid="${wpId}" data-trigger="exit">+</button>
+        </div>
+      </div>
+    `;
+
+    listEl.appendChild(card);
+  });
+
+  // ── Bind add-action buttons ───────────────────────────────────────────────
+  listEl.querySelectorAll('.add-action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wpId   = btn.dataset.wpid;
+      const trig   = btn.dataset.trigger; // 'entry' | 'exit'
+      const typeEl = document.getElementById(`${trig}-type-${wpId}`);
+      const paramEl= document.getElementById(`${trig}-param-${wpId}`);
+      const type   = typeEl.value;
+      const param  = paramEl.value.trim();
+
+      const event  = STATE.events.get(wpId);
+      if (!event) return;
+
+      const array  = trig === 'entry' ? event.onEntry : event.onExit;
+      array.push({ type, param });
+      paramEl.value = '';
+      renderEventsPanel(); // Re-render to show new action
+    });
+  });
+
+  // ── Bind remove-event buttons ─────────────────────────────────────────────
+  listEl.querySelectorAll('.event-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      STATE.events.delete(btn.dataset.wpid);
+      renderEventsPanel();
+      render();
+    });
+  });
+
+  // ── Bind action delete buttons ────────────────────────────────────────────
+  listEl.querySelectorAll('.action-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const { wpid, trig, idx } = btn.dataset;
+      const event = STATE.events.get(wpid);
+      if (!event) return;
+      const arr = trig === 'entry' ? event.onEntry : event.onExit;
+      arr.splice(Number(idx), 1);
+      renderEventsPanel();
+    });
+  });
+}
+
+/** Build HTML for an action list */
+function renderActionItems(actions, wpId, trig) {
+  if (!actions.length) return `<li style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);padding:2px 0;">No actions</li>`;
+  return actions.map((a, i) => `
+    <li class="action-item">
+      <span style="color:var(--text-dim);min-width:16px;text-align:right;">${i+1}.</span>
+      <span class="action-type-badge">${a.type}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.param || ''}</span>
+      <button class="action-del" data-wpid="${wpId}" data-trig="${trig}" data-idx="${i}" title="Remove">✕</button>
+    </li>
+  `).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §9  FILE I/O — YAML, PGM, SQLite
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── 9A. YAML Parser (ROS2 map YAML) ──────────────────────────────────────────
+
+/** Minimal YAML parser for ROS2 map YAML format.
+ *  Only handles the specific keys we need: resolution, origin, image.
+ */
+function parseRosYaml(text) {
+  const result = {};
+  text.split('\n').forEach(line => {
+    const m = line.match(/^\s*([a-z_]+)\s*:\s*(.+)$/);
+    if (!m) return;
+    const key = m[1].trim();
+    const val = m[2].trim();
+
+    if (key === 'resolution') {
+      result.resolution = parseFloat(val);
+    } else if (key === 'origin') {
+      // Format: [x, y, yaw]
+      const nums = val.replace(/[\[\]]/g, '').split(',').map(Number);
+      result.originX = nums[0] || 0;
+      result.originY = nums[1] || 0;
+    } else if (key === 'image') {
+      result.image = val.replace(/['"]/g, '');
+    }
+  });
+  return result;
+}
+
+// ── 9B. PGM Parser ────────────────────────────────────────────────────────────
+
+/** Parse a PGM file (P2 ASCII or P5 binary) and return an ImageData object.
+ *  PGM format: http://netpbm.sourceforge.net/doc/pgm.html
+ *  In ROS2 maps, occupied cells = 0 (black), free cells = 255 (white).
+ */
+function parsePgm(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let pos = 0;
+
+  // Helper: read until whitespace/newline
+  function readToken() {
+    // Skip whitespace
+    while (pos < bytes.length && (bytes[pos] === 32 || bytes[pos] === 10 || bytes[pos] === 13 || bytes[pos] === 9)) pos++;
+    // Skip comments
+    while (pos < bytes.length && bytes[pos] === 35) { // '#'
+      while (pos < bytes.length && bytes[pos] !== 10) pos++;
+      while (pos < bytes.length && (bytes[pos] === 32 || bytes[pos] === 10 || bytes[pos] === 13)) pos++;
+    }
+    let token = '';
+    while (pos < bytes.length && bytes[pos] !== 32 && bytes[pos] !== 10 && bytes[pos] !== 13 && bytes[pos] !== 9) {
+      token += String.fromCharCode(bytes[pos++]);
+    }
+    return token;
+  }
+
+  const magic  = readToken(); // 'P2' or 'P5'
+  const width  = parseInt(readToken());
+  const height = parseInt(readToken());
+  const maxVal = parseInt(readToken());
+
+  // After reading maxVal in P5, there is exactly one whitespace char
+  if (magic === 'P5') pos++; // skip single whitespace
+
+  const imgData = new ImageData(width, height);
+
+  if (magic === 'P2') {
+    // ASCII PGM
+    for (let i = 0; i < width * height; i++) {
+      const v = parseInt(readToken());
+      const gray = Math.round((v / maxVal) * 255);
+      imgData.data[i*4]   = gray;
+      imgData.data[i*4+1] = gray;
+      imgData.data[i*4+2] = gray;
+      imgData.data[i*4+3] = 255;
+    }
+  } else if (magic === 'P5') {
+    // Binary PGM
+    const bytesPerPx = maxVal > 255 ? 2 : 1;
+    for (let i = 0; i < width * height; i++) {
+      let v;
+      if (bytesPerPx === 2) {
+        v = (bytes[pos] << 8) | bytes[pos + 1];
+        pos += 2;
+      } else {
+        v = bytes[pos++];
+      }
+      const gray = Math.round((v / maxVal) * 255);
+      imgData.data[i*4]   = gray;
+      imgData.data[i*4+1] = gray;
+      imgData.data[i*4+2] = gray;
+      imgData.data[i*4+3] = 255;
+    }
+  } else {
+    throw new Error('Unsupported PGM format: ' + magic);
+  }
+
+  return imgData;
+}
+
+/** Load a parsed ImageData onto an offscreen canvas and create an HTMLImageElement */
+function imageDataToImage(imgData) {
+  return new Promise(resolve => {
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = imgData.width;
+    offscreen.height = imgData.height;
+    offscreen.getContext('2d').putImageData(imgData, 0, 0);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = offscreen.toDataURL();
+  });
+}
+
+// ── 9C. SQLite Export / Import ────────────────────────────────────────────────
+
+/** Compile the entire project state into a SQLite .db file and trigger download */
+async function exportToDb() {
+  if (typeof initSqlJs === 'undefined') {
+    showToast('sql.js not loaded — check internet connection');
+    return;
+  }
+
+  const SQL = await initSqlJs({
+    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${file}`
+  });
+
+  const db = new SQL.Database();
+
+  // ── Create schema ──────────────────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS project_meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS map_meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS waypoints (
+      id    TEXT PRIMARY KEY,
+      x     REAL,
+      y     REAL,
+      label TEXT
+    );
+    CREATE TABLE IF NOT EXISTS waypoint_neighbors (
+      waypoint_id   TEXT,
+      neighbor_id   TEXT
+    );
+    CREATE TABLE IF NOT EXISTS edges (
+      id          TEXT PRIMARY KEY,
+      from_wp     TEXT,
+      to_wp       TEXT,
+      direction   TEXT,
+      speed_limit REAL,
+      lane_width  REAL
+    );
+    CREATE TABLE IF NOT EXISTS events (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      waypoint_id TEXT,
+      trigger     TEXT,
+      action_type TEXT,
+      action_param TEXT,
+      action_order INTEGER
+    );
+  `);
+
+  // ── Insert project metadata ────────────────────────────────────────────────
+  const meta = {
+    name:        STATE.project.name,
+    entity_name: STATE.project.entityName,
+    bot_type:    STATE.project.botType,
+    model_type:  STATE.project.modelType,
+    description: STATE.project.description,
+  };
+  Object.entries(meta).forEach(([k, v]) => {
+    db.run('INSERT INTO project_meta VALUES (?, ?)', [k, v]);
+  });
+
+  // ── Insert map calibration ─────────────────────────────────────────────────
+  const mapM = {
+    resolution: String(STATE.map.resolution),
+    origin_x:   String(STATE.map.originX),
+    origin_y:   String(STATE.map.originY),
+    image_width:  String(STATE.map.imageWidth),
+    image_height: String(STATE.map.imageHeight),
+  };
+  Object.entries(mapM).forEach(([k, v]) => {
+    db.run('INSERT INTO map_meta VALUES (?, ?)', [k, v]);
+  });
+
+  // ── Insert waypoints ───────────────────────────────────────────────────────
+  STATE.waypoints.forEach(wp => {
+    db.run('INSERT INTO waypoints VALUES (?, ?, ?, ?)', [wp.id, wp.x, wp.y, wp.label || '']);
+    wp.neighbors.forEach(nid => {
+      db.run('INSERT INTO waypoint_neighbors VALUES (?, ?)', [wp.id, nid]);
+    });
+  });
+
+  // ── Insert edges ───────────────────────────────────────────────────────────
+  STATE.edges.forEach(edge => {
+    db.run('INSERT INTO edges VALUES (?, ?, ?, ?, ?, ?)', [
+      edge.id, edge.from, edge.to, edge.direction, edge.speedLimit, edge.laneWidth
+    ]);
+  });
+
+  // ── Insert events ──────────────────────────────────────────────────────────
+  STATE.events.forEach((event, wpId) => {
+    const insertActions = (actions, trigger) => {
+      actions.forEach((action, order) => {
+        db.run('INSERT INTO events (waypoint_id, trigger, action_type, action_param, action_order) VALUES (?,?,?,?,?)',
+          [wpId, trigger, action.type, action.param || '', order]);
+      });
+    };
+    insertActions(event.onEntry, 'entry');
+    insertActions(event.onExit,  'exit');
+  });
+
+  // ── Export binary and trigger download ────────────────────────────────────
+  const binArray = db.export();
+  const blob = new Blob([binArray], { type: 'application/x-sqlite3' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (STATE.project.name || 'project') + '.db';
+  a.click();
+  URL.revokeObjectURL(url);
+  db.close();
+  showToast('Project exported successfully');
+}
+
+/** Import a .db file, validate schema, and reconstruct the workspace */
+async function importFromDb(file) {
+  if (typeof initSqlJs === 'undefined') {
+    showToast('sql.js not loaded'); return;
+  }
+
+  const SQL = await initSqlJs({
+    locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+  });
+
+  const buffer = await file.arrayBuffer();
+  let db;
+  try {
+    db = new SQL.Database(new Uint8Array(buffer));
+  } catch(e) {
+    showToast('Failed to open .db — invalid file');
+    return;
+  }
+
+  // ── Validate schema ────────────────────────────────────────────────────────
+  const tables = ['project_meta', 'waypoints', 'edges', 'events'];
+  for (const t of tables) {
+    try {
+      db.run(`SELECT 1 FROM ${t} LIMIT 1`);
+    } catch(e) {
+      showToast(`Schema error: missing table "${t}"`);
+      db.close();
+      return;
+    }
+  }
+
+  // ── Clear current state ───────────────────────────────────────────────────
+  clearAll(false);
+
+  // ── Load project meta ──────────────────────────────────────────────────────
+  const metaRows = db.exec('SELECT key, value FROM project_meta');
+  if (metaRows.length) {
+    metaRows[0].values.forEach(([k, v]) => {
+      if (k === 'name')        { STATE.project.name = v; document.getElementById('project-name-display').value = v; }
+      if (k === 'entity_name') { STATE.project.entityName = v; document.getElementById('meta-name').value = v; }
+      if (k === 'bot_type')    { STATE.project.botType = v; document.getElementById('meta-bot-type').value = v; }
+      if (k === 'model_type')  { STATE.project.modelType = v; document.getElementById('meta-model-type').value = v; }
+      if (k === 'description') { STATE.project.description = v; document.getElementById('meta-description').value = v; }
+    });
+  }
+
+  // ── Load map meta ──────────────────────────────────────────────────────────
+  const mapRows = db.exec('SELECT key, value FROM map_meta');
+  if (mapRows.length) {
+    mapRows[0].values.forEach(([k, v]) => {
+      if (k === 'resolution')   { STATE.map.resolution   = parseFloat(v); document.getElementById('map-resolution').value = v; }
+      if (k === 'origin_x')     { STATE.map.originX      = parseFloat(v); document.getElementById('map-origin-x').value = v; }
+      if (k === 'origin_y')     { STATE.map.originY      = parseFloat(v); document.getElementById('map-origin-y').value = v; }
+      if (k === 'image_width')  STATE.map.imageWidth  = parseInt(v);
+      if (k === 'image_height') STATE.map.imageHeight = parseInt(v);
+    });
+  }
+
+  // ── Load waypoints ─────────────────────────────────────────────────────────
+  const wpRows = db.exec('SELECT id, x, y, label FROM waypoints');
+  if (wpRows.length) {
+    wpRows[0].values.forEach(([id, x, y, label]) => {
+      STATE.waypoints.set(id, { id, x: Number(x), y: Number(y), label: label || '', neighbors: new Set() });
+      const idNum = parseInt(id);
+      if (!isNaN(idNum) && idNum >= STATE.nextWpId) STATE.nextWpId = idNum + 1;
+    });
+  }
+
+  // Restore neighbor sets
+  const nbRows = db.exec('SELECT waypoint_id, neighbor_id FROM waypoint_neighbors');
+  if (nbRows.length) {
+    nbRows[0].values.forEach(([wpId, nid]) => {
+      const wp = STATE.waypoints.get(wpId);
+      if (wp) wp.neighbors.add(nid);
+    });
+  }
+
+  // ── Load edges ─────────────────────────────────────────────────────────────
+  const edgeRows = db.exec('SELECT id, from_wp, to_wp, direction, speed_limit, lane_width FROM edges');
+  if (edgeRows.length) {
+    edgeRows[0].values.forEach(([id, from, to, dir, spd, lw]) => {
+      STATE.edges.set(id, {
+        id, from, to,
+        direction:  dir,
+        speedLimit: Number(spd),
+        laneWidth:  Number(lw),
+      });
+      const idNum = parseInt(id);
+      if (!isNaN(idNum) && idNum >= STATE.nextEdgeId) STATE.nextEdgeId = idNum + 1;
+    });
+  }
+
+  // ── Load events ────────────────────────────────────────────────────────────
+  const evtRows = db.exec('SELECT waypoint_id, trigger, action_type, action_param, action_order FROM events ORDER BY waypoint_id, trigger, action_order');
+  if (evtRows.length) {
+    evtRows[0].values.forEach(([wpId, trig, atype, aparam]) => {
+      if (!STATE.events.has(wpId)) STATE.events.set(wpId, { onEntry: [], onExit: [] });
+      const evt = STATE.events.get(wpId);
+      const arr = trig === 'entry' ? evt.onEntry : evt.onExit;
+      arr.push({ type: atype, param: aparam || '' });
+    });
+  }
+
+  db.close();
+
+  fitView();
+  updateAdjacencyTable();
+  renderEventsPanel();
+  render();
+  showToast(`Imported: ${STATE.waypoints.size} waypoints, ${STATE.edges.size} edges, ${STATE.events.size} events`);
+}
+
+/** Full clear of workspace */
+function clearAll(confirm = true) {
+  STATE.waypoints.clear();
+  STATE.edges.clear();
+  STATE.events.clear();
+  STATE.selectedWpId   = null;
+  STATE.selectedEdgeId = null;
+  STATE.nextWpId   = 0;
+  STATE.nextEdgeId = 0;
+  STATE.map.image  = null;
+  STATE.map.imageWidth  = 0;
+  STATE.map.imageHeight = 0;
+  STATE.edgeStartWpId  = null;
+  STATE.densePath.p1   = null;
+  document.getElementById('map-import-status').textContent = 'No map loaded';
+  updateAdjacencyTable();
+  renderEventsPanel();
+  updateInspector();
+  render();
+  if (confirm) showToast('Workspace cleared');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §10  KEYBOARD SHORTCUTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  // Ignore if focus is in an input field
+  const tag = document.activeElement.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+  switch (e.key.toLowerCase()) {
+    case 's': setTool('select');   break;
+    case 'w': setTool('waypoint'); break;
+    case 'e': setTool('edge');     break;
+    case 'v': setTool('event');    break;
+    case 'd': setTool('dense');    break;
+    case 'p': setTool('pan');      break;
+    case 'escape': cancelCurrentAction(); break;
+    case 'f': fitView(); break;
+
+    case 'delete':
+    case 'backspace':
+      // Delete selected element and update adjacency list
+      if (STATE.selectedWpId !== null) {
+        deleteWaypoint(STATE.selectedWpId);
+        STATE.selectedWpId = null;
+        updateInspector();
+        updateAdjacencyTable();
+        renderEventsPanel();
+        render();
+      } else if (STATE.selectedEdgeId !== null) {
+        deleteEdge(STATE.selectedEdgeId);
+        STATE.selectedEdgeId = null;
+        updateInspector();
+        render();
+      }
+      break;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §11  UI INITIALIZATION & EVENT LISTENERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Tool palette buttons ───────────────────────────────────────────────────
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+// ── Inspector tabs ─────────────────────────────────────────────────────────
+document.querySelectorAll('.itab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.itab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.itab-content').forEach(c => c.classList.remove('visible'));
+    tab.classList.add('active');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('visible');
+  });
+});
+
+// ── Zoom controls ──────────────────────────────────────────────────────────
+document.getElementById('zoom-in') .addEventListener('click', () => applyZoom(1.25, canvas.width/2, canvas.height/2));
+document.getElementById('zoom-out').addEventListener('click', () => applyZoom(0.80, canvas.width/2, canvas.height/2));
+document.getElementById('zoom-fit').addEventListener('click', fitView);
+
+// ── Header buttons ─────────────────────────────────────────────────────────
+document.getElementById('btn-export-db').addEventListener('click', exportToDb);
+document.getElementById('btn-import-db').addEventListener('click', () => document.getElementById('file-db').click());
+document.getElementById('btn-import-yaml').addEventListener('click', () => document.getElementById('file-yaml').click());
+document.getElementById('btn-import-pgm') .addEventListener('click', () => document.getElementById('file-pgm').click());
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (confirm('Clear entire workspace? This cannot be undone.')) clearAll();
+});
+
+// Project name header sync
+document.getElementById('project-name-display').addEventListener('input', e => {
+  STATE.project.name = e.target.value;
+});
+
+// ── Map import dropzone click ──────────────────────────────────────────────
+document.getElementById('map-import-zone').addEventListener('click', () => {
+  // Show a mini dialog to choose YAML or PGM
+  document.getElementById('file-yaml').click();
+});
+
+// ── YAML file input ────────────────────────────────────────────────────────
+document.getElementById('file-yaml').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const parsed = parseRosYaml(text);
+
+  if (parsed.resolution) {
+    STATE.map.resolution = parsed.resolution;
+    document.getElementById('map-resolution').value = parsed.resolution;
+  }
+  if (parsed.originX !== undefined) {
+    STATE.map.originX = parsed.originX;
+    document.getElementById('map-origin-x').value = parsed.originX;
+  }
+  if (parsed.originY !== undefined) {
+    STATE.map.originY = parsed.originY;
+    document.getElementById('map-origin-y').value = parsed.originY;
+  }
+  document.getElementById('map-import-status').textContent = '✓ YAML loaded: ' + file.name;
+  showToast(`YAML loaded — resolution: ${parsed.resolution} m/px, origin: [${parsed.originX}, ${parsed.originY}]`);
+  e.target.value = '';
+});
+
+// ── PGM file input ─────────────────────────────────────────────────────────
+document.getElementById('file-pgm').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const buffer  = await file.arrayBuffer();
+    const imgData = parsePgm(buffer);
+    const img     = await imageDataToImage(imgData);
+
+    STATE.map.image       = img;
+    STATE.map.imageWidth  = img.width;
+    STATE.map.imageHeight = img.height;
+
+    document.getElementById('map-import-status').textContent =
+      `✓ PGM: ${img.width}×${img.height}px`;
+    showToast(`Map loaded: ${img.width}×${img.height} px`);
+    fitView();
+  } catch (err) {
+    showToast('PGM parse error: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+// ── DB file input ──────────────────────────────────────────────────────────
+document.getElementById('file-db').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await importFromDb(file);
+  e.target.value = '';
+});
+
+// ── Live map calibration sync ──────────────────────────────────────────────
+['map-resolution','map-origin-x','map-origin-y'].forEach(id => {
+  document.getElementById(id).addEventListener('input', e => {
+    if (id === 'map-resolution') STATE.map.resolution = parseFloat(e.target.value) || 0.05;
+    if (id === 'map-origin-x')   STATE.map.originX    = parseFloat(e.target.value) || 0;
+    if (id === 'map-origin-y')   STATE.map.originY    = parseFloat(e.target.value) || 0;
+    render(); // Rerender since real-world coordinates change
+  });
+});
+
+// ── Graph settings live sync ───────────────────────────────────────────────
+document.getElementById('snap-threshold').addEventListener('input', e => {
+  STATE.snapThreshold = parseInt(e.target.value);
+  document.getElementById('snap-val').textContent = e.target.value;
+});
+document.getElementById('dense-interval').addEventListener('input', e => {
+  STATE.denseInterval = parseInt(e.target.value);
+  document.getElementById('dense-val').textContent = e.target.value;
+});
+document.getElementById('default-direction').addEventListener('change', e => {
+  STATE.defaultDirection = e.target.value;
+});
+document.getElementById('default-speed').addEventListener('input', e => {
+  STATE.defaultSpeed = parseFloat(e.target.value) || 0.5;
+});
+document.getElementById('default-lane-width').addEventListener('input', e => {
+  STATE.defaultLaneWidth = parseFloat(e.target.value) || 0.8;
+});
+
+// ── Project meta live sync ─────────────────────────────────────────────────
+document.getElementById('meta-name').addEventListener('input', e => { STATE.project.entityName = e.target.value; });
+document.getElementById('meta-bot-type').addEventListener('change', e => { STATE.project.botType = e.target.value; });
+document.getElementById('meta-model-type').addEventListener('change', e => { STATE.project.modelType = e.target.value; });
+document.getElementById('meta-description').addEventListener('input', e => { STATE.project.description = e.target.value; });
+
+// ── Toast notification helper ─────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── Window resize handler ─────────────────────────────────────────────────
+window.addEventListener('resize', resizeCanvas);
+
+// ── Space key for temporary pan ────────────────────────────────────────────
+let _spacePan = false;
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !_spacePan) {
+    const tag = document.activeElement.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    _spacePan = true;
+    canvas.style.cursor = 'grab';
+    canvas.addEventListener('mousedown', _spacePanDown);
+    e.preventDefault();
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space' && _spacePan) {
+    _spacePan = false;
+    canvas.style.cursor = 'default';
+    canvas.removeEventListener('mousedown', _spacePanDown);
+  }
+});
+function _spacePanDown(e) {
+  const { x, y } = mouseToCanvas(e);
+  startPan(x, y);
+}
+
+// ── Drag-and-drop map files onto canvas ───────────────────────────────────
+wrapper.addEventListener('dragover', e => { e.preventDefault(); });
+wrapper.addEventListener('drop', async e => {
+  e.preventDefault();
+  const files = Array.from(e.dataTransfer.files);
+  for (const file of files) {
+    if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
+      const text = await file.text();
+      const parsed = parseRosYaml(text);
+      if (parsed.resolution) {
+        STATE.map.resolution = parsed.resolution;
+        document.getElementById('map-resolution').value = parsed.resolution;
+      }
+      if (parsed.originX !== undefined) {
+        STATE.map.originX = parsed.originX;
+        document.getElementById('map-origin-x').value = parsed.originX;
+      }
+      if (parsed.originY !== undefined) {
+        STATE.map.originY = parsed.originY;
+        document.getElementById('map-origin-y').value = parsed.originY;
+      }
+      document.getElementById('map-import-status').textContent = '✓ YAML: ' + file.name;
+      showToast('YAML loaded via drag-drop');
+    } else if (file.name.endsWith('.pgm')) {
+      const buffer  = await file.arrayBuffer();
+      try {
+        const imgData = parsePgm(buffer);
+        const img     = await imageDataToImage(imgData);
+        STATE.map.image       = img;
+        STATE.map.imageWidth  = img.width;
+        STATE.map.imageHeight = img.height;
+        document.getElementById('map-import-status').textContent = '✓ PGM: ' + img.width + '×' + img.height;
+        showToast('PGM loaded via drag-drop');
+        fitView();
+      } catch(err) { showToast('PGM error: ' + err.message); }
+    } else if (file.name.endsWith('.db')) {
+      await importFromDb(file);
+    }
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOTSTRAP — Initialize canvas and first render
+// ─────────────────────────────────────────────────────────────────────────────
+resizeCanvas();
+setTool('select');
+renderEventsPanel();
+updateAdjacencyTable();
+
+// Show a welcome message in the toast
+setTimeout(() => {
+  showToast('HospBot Config Suite ready — S/W/E/V/D/P for tools');
+}, 600);
+
+</script>
+</body>
+</html>
