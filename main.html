@@ -786,10 +786,6 @@
     <div class="section-header">Metadata</div>
     <div class="meta-form">
       <div class="form-group">
-        <label class="form-label">Configuration Name</label>
-        <input type="text" class="form-input" id="meta-name" placeholder="my_configuration" />
-      </div>
-      <div class="form-group">
         <label class="form-label">Bot Type</label>
         <select class="form-select" id="meta-bot-type">
           <option value="R1">R1</option>
@@ -858,7 +854,7 @@
     <div class="section-header">Map Import</div>
     <div id="map-import-zone" title="Click to import map files">
       <div class="import-icon">🗺</div>
-      <p>Click to import map files. [<span>.pgm + .yaml</span>]</p>
+      <p>Click to import map files. [<span>.pgm</span> + <span>.yaml</span>]</p>
       <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
       <p id="map-import-status" style="margin-top:4px; color: var(--text-dim);">No map loaded</p>
     </div>
@@ -1398,9 +1394,8 @@ function render() {
   }
 
   // 5. Draw waypoints
-  STATE.waypoints.forEach(wp => renderWaypoint(wp));
-
   ctx.restore();
+  STATE.waypoints.forEach(wp => renderWaypoint(wp));
 
   // ── Update stats ──────────────────────────────────────────────────────────
   document.getElementById('stat-wp').textContent    = STATE.waypoints.size;
@@ -1503,9 +1498,6 @@ function drawArrow(x, y, angle, direction, isSelected) {
 function renderWaypoint(wp) {
   const { cx, cy } = worldToCanvas(wp.x, wp.y);
   // Work in screen space so sizes are stable regardless of zoom
-  ctx.save();
-  // Reset transform to draw in screen space
-  ctx.restore();
   ctx.save();
   ctx.translate(cx, cy);
 
@@ -2390,7 +2382,6 @@ async function exportToDb() {
   // ── Insert project metadata ────────────────────────────────────────────────
   const meta = {
     name:        STATE.project.name,
-    entity_name: STATE.project.entityName,
     bot_type:    STATE.project.botType,
     model_type:  STATE.project.modelType,
     description: STATE.project.description,
@@ -2491,7 +2482,6 @@ async function importFromDb(file) {
   if (metaRows.length) {
     metaRows[0].values.forEach(([k, v]) => {
       if (k === 'name')        { STATE.project.name = v; document.getElementById('project-name-display').value = v; }
-      if (k === 'entity_name') { STATE.project.entityName = v; document.getElementById('meta-name').value = v; }
       if (k === 'bot_type')    { STATE.project.botType = v; document.getElementById('meta-bot-type').value = v; }
       if (k === 'model_type')  { STATE.project.modelType = v; document.getElementById('meta-model-type').value = v; }
       if (k === 'description') { STATE.project.description = v; document.getElementById('meta-description').value = v; }
@@ -2750,7 +2740,6 @@ document.getElementById('default-lane-width').addEventListener('input', e => {
 });
 
 // ── Project meta live sync ─────────────────────────────────────────────────
-document.getElementById('meta-name').addEventListener('input', e => { STATE.project.entityName = e.target.value; });
 document.getElementById('meta-bot-type').addEventListener('change', e => { STATE.project.botType = e.target.value; });
 document.getElementById('meta-model-type').addEventListener('change', e => { STATE.project.modelType = e.target.value; });
 document.getElementById('meta-description').addEventListener('input', e => { STATE.project.description = e.target.value; });
