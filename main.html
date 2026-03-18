@@ -871,11 +871,15 @@
       </div>
       <div class="form-group">
         <label class="form-label">Origin X (m)</label>
-        <input type="number" class="form-input" id="map-origin-x" value="0" step="0.1" />
+        <input type="number" class="form-input" id="map-origin-x" value="0" step="0.01" />
       </div>
       <div class="form-group">
         <label class="form-label">Origin Y (m)</label>
-        <input type="number" class="form-input" id="map-origin-y" value="0" step="0.1" />
+        <input type="number" class="form-input" id="map-origin-y" value="0" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Origin Yaw (rad)</label>
+        <input type="number" class="form-input" id="map-origin-yaw" value="0" step="0.01" />
       </div>
     </div>
 
@@ -1202,7 +1206,7 @@ function worldToCanvas(wx, wy) {
  *  image = highest Y coordinate). We handle this flip here.
  */
 function pixelToMetres(px, py) {
-  const { resolution, originX, originY, imageHeight } = STATE.map;
+  const { resolution, originX, originY, originYaw, imageHeight } = STATE.map;
   const mx = originX + px * resolution;
   // Flip Y: row 0 is the top of the image, which corresponds to the highest
   // real-world Y value. Bottom of image = originY.
@@ -1212,7 +1216,7 @@ function pixelToMetres(px, py) {
 
 /** Metres → pixel space (inverse of pixelToMetres) */
 function metresToPixel(mx, my) {
-  const { resolution, originX, originY, imageHeight } = STATE.map;
+  const { resolution, originX, originY, originYaw, imageHeight } = STATE.map;
   const px = (mx - originX) / resolution;
   const py = imageHeight - (my - originY) / resolution;
   return { px, py };
@@ -2241,8 +2245,7 @@ function parseRosYaml(text) {
       const nums = val.replace(/[\[\]]/g, '').split(',').map(Number);
       result.originX = nums[0] || 0;
       result.originY = nums[1] || 0;
-    } else if (key === 'image') {
-      result.image = val.replace(/['"]/g, '');
+      result.originYaw = nums[2] || 0;
     }
   });
   return result;
@@ -2401,6 +2404,7 @@ async function exportToDb() {
     resolution: String(STATE.map.resolution),
     origin_x:   String(STATE.map.originX),
     origin_y:   String(STATE.map.originY),
+    origin_yaw:   String(STATE.map.originYaw),
     image_width:  String(STATE.map.imageWidth),
     image_height: String(STATE.map.imageHeight),
   };
@@ -2501,6 +2505,7 @@ async function importFromDb(file) {
       if (k === 'resolution')   { STATE.map.resolution   = parseFloat(v); document.getElementById('map-resolution').value = v; }
       if (k === 'origin_x')     { STATE.map.originX      = parseFloat(v); document.getElementById('map-origin-x').value = v; }
       if (k === 'origin_y')     { STATE.map.originY      = parseFloat(v); document.getElementById('map-origin-y').value = v; }
+      if (k === 'origin_yaw')     { STATE.map.originYaw      = parseFloat(v); document.getElementById('map-origin-yaw').value = v; }
       if (k === 'image_width')  STATE.map.imageWidth  = parseInt(v);
       if (k === 'image_height') STATE.map.imageHeight = parseInt(v);
     });
@@ -2686,6 +2691,10 @@ document.getElementById('map-files-selector').addEventListener('change', async e
         STATE.map.originY = parsed.originY;
         document.getElementById('map-origin-y').value = parsed.originY;
       }
+      if (parsed.originYaw !== undefined) {
+        STATE.map.originYaw = parsed.originYaw;
+        document.getElementById('map-origin-yaw').value = parsed.originYaw;
+      }
       
       // ── PGM file input ─────────────────────────────────────────────────────────
       const buffer  = await pgmFile.arrayBuffer();
@@ -2719,11 +2728,12 @@ document.getElementById('file-db').addEventListener('change', async e => {
 });
 
 // ── Live map calibration sync ──────────────────────────────────────────────
-['map-resolution','map-origin-x','map-origin-y'].forEach(id => {
+['map-resolution','map-origin-x','map-origin-y','map-origin-yaw'].forEach(id => {
   document.getElementById(id).addEventListener('input', e => {
     if (id === 'map-resolution') STATE.map.resolution = parseFloat(e.target.value) || 0.05;
     if (id === 'map-origin-x')   STATE.map.originX    = parseFloat(e.target.value) || 0;
     if (id === 'map-origin-y')   STATE.map.originY    = parseFloat(e.target.value) || 0;
+    if (id === 'map-origin-yaw') STATE.map.originYaw  = parseFloat(e.target.value) || 0;
     render(); // Rerender since real-world coordinates change
   });
 });
@@ -2782,6 +2792,8 @@ function _spacePanDown(e) {
   startPan(x, y);
 }
 
+// To edit
+
 // ── Drag-and-drop map files onto canvas ───────────────────────────────────
 wrapper.addEventListener('dragover', e => { e.preventDefault(); });
 wrapper.addEventListener('drop', async e => {
@@ -2802,6 +2814,10 @@ wrapper.addEventListener('drop', async e => {
       if (parsed.originY !== undefined) {
         STATE.map.originY = parsed.originY;
         document.getElementById('map-origin-y').value = parsed.originY;
+      }
+      if (parsed.originYaw !== undefined) {
+        STATE.map.originYaw = parsed.originYaw;
+        document.getElementById('map-origin-yaw').value = parsed.originYaw;
       }
       document.getElementById('map-import-status').textContent = '✓ YAML: ' + file.name;
       showToast('YAML loaded via drag-drop');
