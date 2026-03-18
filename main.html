@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HospBot Config Suite</title>
+  <title>ProjectX</title>
 
   <!-- =====================================================================
        FONTS: "Share Tech Mono" for monospace data readouts,
@@ -759,19 +759,14 @@
        HEADER
        ====================================================================== -->
   <header id="header">
-    <div class="logo">HOSPBOT<span> // CONFIG</span></div>
+    <div class="logo">ProjectX<span> // Configurator</span></div>
     <div class="header-divider"></div>
     <input id="project-name-display" type="text" value="untitled_project" placeholder="project name" title="Project Name" />
     <div class="header-divider"></div>
 
-    <!-- Map file import buttons -->
-    <button class="hbtn" id="btn-import-yaml" title="Import ROS2 Map YAML">⬆ YAML</button>
-    <button class="hbtn" id="btn-import-pgm"  title="Import PGM Map Image">⬆ PGM</button>
-    <div class="header-divider"></div>
-
     <!-- DB export / import -->
-    <button class="hbtn primary" id="btn-export-db">💾 EXPORT .DB</button>
     <button class="hbtn"         id="btn-import-db">📂 IMPORT .DB</button>
+    <button class="hbtn primary" id="btn-export-db">💾 EXPORT .DB</button>
     <button class="hbtn danger"  id="btn-clear">✕ CLEAR</button>
 
     <div class="header-spacer"></div>
@@ -787,11 +782,41 @@
        ====================================================================== -->
   <aside id="sidebar">
 
+    <!-- PROJECT METADATA -->
+    <div class="section-header">Metadata</div>
+    <div class="meta-form">
+      <div class="form-group">
+        <label class="form-label">Configuration Name</label>
+        <input type="text" class="form-input" id="meta-name" placeholder="my_configuration" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bot Type</label>
+        <select class="form-select" id="meta-bot-type">
+          <option value="R1">R1</option>
+          <option value="R2">R2</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model Type</label>
+        <select class="form-select" id="meta-model-type">
+          <option value="hospitality">hospitality</option>
+          <option value="kiosk">kiosk</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (Optional)</label>
+        <textarea class="form-textarea" id="meta-description" placeholder="Description..."></textarea>
+      </div>
+    </div>
+
     <!-- TOOL PALETTE -->
     <div class="section-header">Tools</div>
     <div id="tool-palette">
       <button class="tool-btn active" data-tool="select"   title="Select / Drag (S)">
         <span class="icon">↖</span>SELECT
+      </button>
+      <button class="tool-btn" data-tool="pan"      title="Pan Map (P)">
+        <span class="icon">✥</span>PAN
       </button>
       <button class="tool-btn" data-tool="waypoint" title="Place Waypoint (W)">
         <span class="icon">◎</span>WAYPOINT
@@ -799,31 +824,17 @@
       <button class="tool-btn" data-tool="edge"     title="Draw Edge (E)">
         <span class="icon">⟶</span>EDGE
       </button>
-      <button class="tool-btn" data-tool="event"    title="Anchor Event (V)">
-        <span class="icon">⚡</span>EVENT
-      </button>
       <button class="tool-btn" data-tool="dense"    title="Dense Path (D)">
         <span class="icon">⋯</span>DENSE
       </button>
-      <button class="tool-btn" data-tool="pan"      title="Pan Map (P)">
-        <span class="icon">✥</span>PAN
+      <button class="tool-btn" data-tool="event"    title="Anchor Event (V)">
+        <span class="icon">⚡</span>EVENT
       </button>
     </div>
 
     <!-- SNAP / INTERPOLATION SETTINGS -->
     <div class="section-header">Graph Settings</div>
     <div id="graph-tools">
-      <div class="slider-row">
-        <label>SNAP px</label>
-        <input type="range" id="snap-threshold" min="5" max="60" value="20" />
-        <span class="slider-val" id="snap-val">20</span>
-      </div>
-      <div class="slider-row">
-        <label>DENSE px</label>
-        <input type="range" id="dense-interval" min="10" max="100" value="30" />
-        <span class="slider-val" id="dense-val">30</span>
-      </div>
-
       <!-- Default edge property controls -->
       <div class="form-group" style="margin-top:6px;">
         <label class="form-label">Default Direction</label>
@@ -843,38 +854,12 @@
       </div>
     </div>
 
-    <!-- PROJECT METADATA -->
-    <div class="section-header">Entity Schema</div>
-    <div class="meta-form">
-      <div class="form-group">
-        <label class="form-label">Entity Name *</label>
-        <input type="text" class="form-input" id="meta-name" placeholder="my_robot_01" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Bot Type</label>
-        <select class="form-select" id="meta-bot-type">
-          <option value="R1">R1</option>
-          <option value="R2">R2</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Model Type</label>
-        <select class="form-select" id="meta-model-type">
-          <option value="hospitality">hospitality</option>
-          <option value="kiosk">kiosk</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description</label>
-        <textarea class="form-textarea" id="meta-description" placeholder="Optional description..."></textarea>
-      </div>
-    </div>
-
     <!-- MAP IMPORT DROPZONE -->
     <div class="section-header">Map Import</div>
     <div id="map-import-zone" title="Click to import map files">
       <div class="import-icon">🗺</div>
-      <p>Click to import <span>.yaml</span> or <span>.pgm</span></p>
+      <p>Click to import map files. [<span>.pgm + .yaml</span>]</p>
+      <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
       <p id="map-import-status" style="margin-top:4px; color: var(--text-dim);">No map loaded</p>
     </div>
 
@@ -1057,8 +1042,6 @@
 <!-- =========================================================================
      HIDDEN FILE INPUTS (triggered programmatically)
      ========================================================================= -->
-<input type="file" id="file-yaml" accept=".yaml,.yml" style="display:none" />
-<input type="file" id="file-pgm"  accept=".pgm"       style="display:none" />
 <input type="file" id="file-db"   accept=".db"        style="display:none" />
 
 <!-- =========================================================================
@@ -2665,8 +2648,6 @@ document.getElementById('zoom-fit').addEventListener('click', fitView);
 // ── Header buttons ─────────────────────────────────────────────────────────
 document.getElementById('btn-export-db').addEventListener('click', exportToDb);
 document.getElementById('btn-import-db').addEventListener('click', () => document.getElementById('file-db').click());
-document.getElementById('btn-import-yaml').addEventListener('click', () => document.getElementById('file-yaml').click());
-document.getElementById('btn-import-pgm') .addEventListener('click', () => document.getElementById('file-pgm').click());
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (confirm('Clear entire workspace? This cannot be undone.')) clearAll();
 });
@@ -2679,54 +2660,54 @@ document.getElementById('project-name-display').addEventListener('input', e => {
 // ── Map import dropzone click ──────────────────────────────────────────────
 document.getElementById('map-import-zone').addEventListener('click', () => {
   // Show a mini dialog to choose YAML or PGM
-  document.getElementById('file-yaml').click();
+  document.getElementById('map-files-selector').click();
 });
 
-// ── YAML file input ────────────────────────────────────────────────────────
-document.getElementById('file-yaml').addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  const parsed = parseRosYaml(text);
+document.getElementById('map-files-selector').addEventListener('change', async event => {
+  const files = Array.from(event.target.files);  
+  const pgmFile = files.find(f => f.name.toLowerCase().endsWith('.pgm'));
+  const yamlFile = files.find(f => f.name.toLowerCase().endsWith('.yml') || f.name.toLowerCase().endsWith('.yaml'));
+  if (yamlFile && pgmFile) {
 
-  if (parsed.resolution) {
-    STATE.map.resolution = parsed.resolution;
-    document.getElementById('map-resolution').value = parsed.resolution;
-  }
-  if (parsed.originX !== undefined) {
-    STATE.map.originX = parsed.originX;
-    document.getElementById('map-origin-x').value = parsed.originX;
-  }
-  if (parsed.originY !== undefined) {
-    STATE.map.originY = parsed.originY;
-    document.getElementById('map-origin-y').value = parsed.originY;
-  }
-  document.getElementById('map-import-status').textContent = '✓ YAML loaded: ' + file.name;
-  showToast(`YAML loaded — resolution: ${parsed.resolution} m/px, origin: [${parsed.originX}, ${parsed.originY}]`);
-  e.target.value = '';
-});
+    try {
 
-// ── PGM file input ─────────────────────────────────────────────────────────
-document.getElementById('file-pgm').addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  try {
-    const buffer  = await file.arrayBuffer();
-    const imgData = parsePgm(buffer);
-    const img     = await imageDataToImage(imgData);
+      // ── YAML file input ────────────────────────────────────────────────────────
+      const yamlText = await yamlFile.text();
+      const parsed = parseRosYaml(yamlText);
+      if (parsed.resolution) {
+        STATE.map.resolution = parsed.resolution;
+        document.getElementById('map-resolution').value = parsed.resolution;
+      }
+      if (parsed.originX !== undefined) {
+        STATE.map.originX = parsed.originX;
+        document.getElementById('map-origin-x').value = parsed.originX;
+      }
+      if (parsed.originY !== undefined) {
+        STATE.map.originY = parsed.originY;
+        document.getElementById('map-origin-y').value = parsed.originY;
+      }
+      
+      // ── PGM file input ─────────────────────────────────────────────────────────
+      const buffer  = await pgmFile.arrayBuffer();
+      const imgData = parsePgm(buffer);
+      const img     = await imageDataToImage(imgData);
+      STATE.map.image       = img;
+      STATE.map.imageWidth  = img.width;
+      STATE.map.imageHeight = img.height;
 
-    STATE.map.image       = img;
-    STATE.map.imageWidth  = img.width;
-    STATE.map.imageHeight = img.height;
+      document.getElementById('map-import-status').textContent = `✓ PGM: ${img.width}×${img.height}px | ✓ YAML: ${yamlFile.name}`;
+      showToast(`Map loaded: ${img.width}×${img.height} px | resolution: ${parsed.resolution} m/px, origin: [${parsed.originX}, ${parsed.originY}]`);
+      fitView();
 
-    document.getElementById('map-import-status').textContent =
-      `✓ PGM: ${img.width}×${img.height}px`;
-    showToast(`Map loaded: ${img.width}×${img.height} px`);
-    fitView();
-  } catch (err) {
-    showToast('PGM parse error: ' + err.message);
+    } catch (err) {
+      showToast('Map parsing error: ' + err.message);
+    }
+
+    event.target.value = '';
+    
+  } else {
+    document.getElementById('map-import-status').textContent = "Error: Please select map files together.";
   }
-  e.target.value = '';
 });
 
 // ── DB file input ──────────────────────────────────────────────────────────
@@ -2748,14 +2729,6 @@ document.getElementById('file-db').addEventListener('change', async e => {
 });
 
 // ── Graph settings live sync ───────────────────────────────────────────────
-document.getElementById('snap-threshold').addEventListener('input', e => {
-  STATE.snapThreshold = parseInt(e.target.value);
-  document.getElementById('snap-val').textContent = e.target.value;
-});
-document.getElementById('dense-interval').addEventListener('input', e => {
-  STATE.denseInterval = parseInt(e.target.value);
-  document.getElementById('dense-val').textContent = e.target.value;
-});
 document.getElementById('default-direction').addEventListener('change', e => {
   STATE.defaultDirection = e.target.value;
 });
