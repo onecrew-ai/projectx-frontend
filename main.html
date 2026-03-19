@@ -808,22 +808,16 @@
     <!-- TOOL PALETTE -->
     <div class="section-header">Tools</div>
     <div id="tool-palette">
-      <button class="tool-btn active" data-tool="select"   title="Select / Drag (S)">
+      <button class="tool-btn active" data-tool="select"   title="Select / Drag (1)">
         <span class="icon">↖</span>SELECT
       </button>
-      <button class="tool-btn" data-tool="pan"      title="Pan Map (P)">
+      <button class="tool-btn" data-tool="pan"      title="Pan Map (2)">
         <span class="icon">✥</span>PAN
       </button>
-      <button class="tool-btn" data-tool="waypoint" title="Place Waypoint (W)">
-        <span class="icon">◎</span>WAYPOINT
+      <button class="tool-btn" data-tool="dense"    title="Waypoint Addition (3)">
+        <span class="icon">⋯</span>WAYPOINTS
       </button>
-      <button class="tool-btn" data-tool="edge"     title="Draw Edge (E)">
-        <span class="icon">⟶</span>EDGE
-      </button>
-      <button class="tool-btn" data-tool="dense"    title="Dense Path (D)">
-        <span class="icon">⋯</span>DENSE
-      </button>
-      <button class="tool-btn" data-tool="event"    title="Anchor Event (V)">
+      <button class="tool-btn" data-tool="event"    title="Anchor Event (4)">
         <span class="icon">⚡</span>EVENT
       </button>
     </div>
@@ -888,7 +882,7 @@
     <canvas id="main-canvas"></canvas>
 
     <!-- Dense-path mode banner -->
-    <div id="dense-mode-indicator">⋯ DENSE PATH MODE — Click P1 then P2</div>
+    <div id="dense-mode-indicator">⋯ WAYPOINTS MODE — Click P1 then P2 to generate waypoints</div>
 
     <!-- Zoom controls -->
     <div id="zoom-controls">
@@ -1065,6 +1059,18 @@
     11. UI Initialization & Event Listeners
    ============================================================================ */
 
+let isRenderScheduled = false;
+
+function scheduleRender() {
+  if (!isRenderScheduled) {
+    isRenderScheduled = true;
+    requestAnimationFrame(() => {
+      render();
+      isRenderScheduled = false;
+    });
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // §1  APPLICATION STATE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1125,6 +1131,9 @@ const STATE = {
     zoom:  1.0,  // scale factor
   },
 
+  // ── Hovering ──────────────────────────────────────────────────────────────
+  hover: { wx: null, wy: null },
+
   // ── Dragging ──────────────────────────────────────────────────────────────
   drag: {
     active:    false,
@@ -1164,7 +1173,7 @@ const wrapper = document.getElementById('canvas-wrapper');
 function resizeCanvas() {
   canvas.width  = wrapper.clientWidth;
   canvas.height = wrapper.clientHeight;
-  render();
+  scheduleRender();
 }
 
 /** Convert mouse event coordinates to canvas logical coordinates
@@ -1226,7 +1235,7 @@ function applyZoom(factor, screenX, screenY) {
   STATE.view.panY = screenY - (screenY - STATE.view.panY) * (newZoom / STATE.view.zoom);
   STATE.view.zoom = newZoom;
   updateZoomLabel();
-  render();
+  scheduleRender();
 }
 
 /** Fit the entire map (or all waypoints) into the viewport */
@@ -1262,7 +1271,7 @@ function fitView() {
     STATE.view.panY = 0;
   }
   updateZoomLabel();
-  render();
+  scheduleRender();
 }
 
 function updateZoomLabel() {
@@ -1376,24 +1385,11 @@ function render() {
 
   // 3. Draw edges (before waypoints so WPs appear on top)
   STATE.edges.forEach(edge => renderEdge(edge));
-
-  // 4. Draw in-progress edge (while using edge tool)
-  if (STATE.currentTool === 'edge' && STATE.edgeStartWpId && STATE._edgeMousePos) {
-    const startWp = STATE.waypoints.get(STATE.edgeStartWpId);
-    if (startWp) {
-      ctx.save();
-      ctx.setLineDash([4 / STATE.view.zoom, 4 / STATE.view.zoom]);
-      ctx.strokeStyle = 'rgba(0,212,255,0.5)';
-      ctx.lineWidth = 1 / STATE.view.zoom;
-      ctx.beginPath();
-      ctx.moveTo(startWp.x, startWp.y);
-      ctx.lineTo(STATE._edgeMousePos.wx, STATE._edgeMousePos.wy);
-      ctx.stroke();
-      ctx.restore();
-    }
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1 && STATE.hover.wx !== null) {
+    drawDensePreview();
   }
 
-  // 5. Draw waypoints
+  // 4. Draw waypoints
   ctx.restore();
   STATE.waypoints.forEach(wp => renderWaypoint(wp));
 
@@ -1547,6 +1543,63 @@ function renderWaypoint(wp) {
   ctx.restore();
 }
 
+/** Render a preview of the dense path before the user clicks P2 (with snapping) */
+function drawDensePreview() {
+  const p1 = STATE.densePath.p1;
+  
+  let p2 = { wx: STATE.hover.wx, wy: STATE.hover.wy };
+  let isSnapped = false;
+
+  const { cx, cy } = worldToCanvas(p2.wx, p2.wy);
+  const nearest = nearestWaypoint(cx, cy);
+
+  if (nearest && nearest.distPx <= STATE.snapThreshold) {
+    const snapWp = STATE.waypoints.get(nearest.wpId);
+    if (snapWp) {
+      p2 = { wx: snapWp.x, wy: snapWp.y };
+      isSnapped = true;
+    }
+  }
+
+  ctx.save();
+  
+  ctx.strokeStyle = isSnapped ? 'rgba(0, 255, 136, 0.8)' : 'rgba(255, 170, 0, 0.6)';
+  ctx.lineWidth = 1.5 / STATE.view.zoom;
+  ctx.setLineDash([6 / STATE.view.zoom, 6 / STATE.view.zoom]); 
+  ctx.beginPath();
+  ctx.moveTo(p1.wx, p1.wy);
+  ctx.lineTo(p2.wx, p2.wy);
+  ctx.stroke();
+
+  if (isSnapped) {
+    ctx.beginPath();
+    ctx.arc(p2.wx, p2.wy, 12 / STATE.view.zoom, 0, Math.PI * 2);
+    ctx.strokeStyle = '#00ff88';
+    ctx.setLineDash([]); 
+    ctx.lineWidth = 2 / STATE.view.zoom;
+    ctx.stroke();
+  }
+
+  // FIXED: Calculate steps purely in world coordinates
+  const totalDist = dist(p1.wx, p1.wy, p2.wx, p2.wy);
+  const intervalWorld = STATE.denseInterval; // No longer divided by zoom!
+  const steps = Math.max(1, Math.floor(totalDist / intervalWorld));
+  
+  const dx = (p2.wx - p1.wx) / steps;
+  const dy = (p2.wy - p1.wy) / steps;
+
+  ctx.fillStyle = isSnapped ? 'rgba(0, 255, 136, 0.4)' : 'rgba(255, 170, 0, 0.4)';
+  for (let i = 1; i < steps; i++) { 
+    const x = p1.wx + dx * i;
+    const y = p1.wy + dy * i;
+    ctx.beginPath();
+    ctx.arc(x, y, 3 / STATE.view.zoom, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // §5  WAYPOINT & EDGE OPERATIONS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1685,15 +1738,17 @@ function deleteEdge(id) {
   if (STATE.selectedEdgeId === id) STATE.selectedEdgeId = null;
 }
 
-/** Dense path: interpolate waypoints between two canvas-space positions
- *  at fixed intervals (STATE.denseInterval pixels), linking them as a chain.
+/** Dense path: interpolate waypoints between two world-space positions
+ * at fixed intervals (STATE.denseInterval), linking them as a chain.
  */
 function createDensePath(wx1, wy1, wx2, wy2) {
-  // Work in world/pixel coordinates
+  // Work strictly in world/pixel coordinates
   const totalDist = dist(wx1, wy1, wx2, wy2);
-  // Convert denseInterval from screen-pixels to world-pixels
-  const intervalWorld = STATE.denseInterval / STATE.view.zoom;
+  
+  // FIXED: Use the static interval regardless of zoom
+  const intervalWorld = STATE.denseInterval; 
   const steps = Math.max(1, Math.floor(totalDist / intervalWorld));
+  
   const dx = (wx2 - wx1) / steps;
   const dy = (wy2 - wy1) / steps;
 
@@ -1705,7 +1760,7 @@ function createDensePath(wx1, wy1, wx2, wy2) {
     addEdge(prevId, nextId);
     prevId = nextId;
   }
-  showToast(`Dense path: ${steps} segments created`);
+  showToast(`Waypoints: ${steps} segments created`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1727,8 +1782,6 @@ function setTool(toolName) {
   // Update cursor and status bar
   const cursors = {
     select:  'default',
-    waypoint:'crosshair',
-    edge:    'crosshair',
     event:   'cell',
     dense:   'crosshair',
     pan:     'grab',
@@ -1737,8 +1790,6 @@ function setTool(toolName) {
 
   const labels = {
     select:  '◈ SELECT',
-    waypoint:'◎ WAYPOINT',
-    edge:    '⟶ EDGE',
     event:   '⚡ EVENT',
     dense:   '⋯ DENSE PATH',
     pan:     '✥ PAN',
@@ -1756,6 +1807,9 @@ canvas.addEventListener('mousedown', e => {
   const { x, y } = mouseToCanvas(e);
   const { wx, wy } = canvasToWorld(x, y);
 
+  STATE.hover.wx = wx;
+  STATE.hover.wy = wy;
+
   // Middle-button or Space+drag → pan regardless of tool
   if (e.button === 1) {
     startPan(x, y);
@@ -1770,20 +1824,28 @@ canvas.addEventListener('mousedown', e => {
 
   if (STATE.currentTool === 'select') {
     handleSelectMouseDown(x, y, wx, wy);
-  } else if (STATE.currentTool === 'waypoint') {
-    handleWaypointPlace(wx, wy);
-  } else if (STATE.currentTool === 'edge') {
-    handleEdgeClick(x, y, wx, wy);
   } else if (STATE.currentTool === 'event') {
     handleEventToggle(x, y);
   } else if (STATE.currentTool === 'dense') {
     handleDenseClick(wx, wy);
+    if (STATE.densePath.p1) {
+      scheduleRender();
+    }
   }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  STATE.hover.wx = null;
+  STATE.hover.wy = null;
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
 });
 
 canvas.addEventListener('mousemove', e => {
   const { x, y } = mouseToCanvas(e);
   const { wx, wy } = canvasToWorld(x, y);
+
+  STATE.hover.wx = wx;
+  STATE.hover.wy = wy;
 
   // Update HUD coordinates (convert pixel coords to real-world metres)
   const { mx, my } = pixelToMetres(wx, wy);
@@ -1800,10 +1862,8 @@ canvas.addEventListener('mousemove', e => {
     return;
   }
 
-  // Update live edge preview while edge tool is active
-  if (STATE.currentTool === 'edge' && STATE.edgeStartWpId) {
-    STATE._edgeMousePos = { wx, wy };
-    render();
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1) {
+    scheduleRender();
   }
 });
 
@@ -1840,7 +1900,7 @@ function handleSelectMouseDown(cx, cy, wx, wy) {
       startWpY:  wp.y,
     };
     updateInspector();
-    render();
+    scheduleRender();
     return;
   }
 
@@ -1850,7 +1910,7 @@ function handleSelectMouseDown(cx, cy, wx, wy) {
     STATE.selectedEdgeId = nearEdge.edgeId;
     STATE.selectedWpId   = null;
     updateInspector();
-    render();
+    scheduleRender();
     return;
   }
 
@@ -1858,7 +1918,7 @@ function handleSelectMouseDown(cx, cy, wx, wy) {
   STATE.selectedWpId   = null;
   STATE.selectedEdgeId = null;
   updateInspector();
-  render();
+  scheduleRender();
 }
 
 function doDragWaypoint(wx, wy) {
@@ -1867,7 +1927,7 @@ function doDragWaypoint(wx, wy) {
   if (!wp) return;
   wp.x = wx;
   wp.y = wy;
-  render();
+  scheduleRender();
 }
 
 function startPan(x, y) {
@@ -1878,51 +1938,7 @@ function startPan(x, y) {
 function doPan(x, y) {
   STATE.view.panX = STATE.panDrag.startPX + (x - STATE.panDrag.startMx);
   STATE.view.panY = STATE.panDrag.startPY + (y - STATE.panDrag.startMy);
-  render();
-}
-
-function handleWaypointPlace(wx, wy) {
-  const id = addWaypoint(wx, wy);
-  STATE.selectedWpId   = id;
-  STATE.selectedEdgeId = null;
-  updateInspector();
-  updateAdjacencyTable();
-  render();
-}
-
-function handleEdgeClick(cx, cy, wx, wy) {
-  // Must click near an existing waypoint
-  const nearWp = nearestWaypoint(cx, cy);
-  if (!nearWp || nearWp.distPx > STATE.snapThreshold * 1.5) {
-    // If far from any WP, cancel
-    if (!STATE.edgeStartWpId) return;
-    // Create a new waypoint here and connect
-    const newId = addWaypoint(wx, wy);
-    addEdge(STATE.edgeStartWpId, newId);
-    STATE.edgeStartWpId = null;
-    STATE._edgeMousePos = null;
-    updateAdjacencyTable();
-    render();
-    return;
-  }
-
-  const clickedId = nearWp.wpId;
-
-  if (!STATE.edgeStartWpId) {
-    // First click: set start waypoint
-    STATE.edgeStartWpId = clickedId;
-    STATE.selectedWpId  = clickedId;
-    render();
-  } else {
-    // Second click: complete edge
-    if (clickedId !== STATE.edgeStartWpId) {
-      addEdge(STATE.edgeStartWpId, clickedId);
-    }
-    STATE.edgeStartWpId = null;
-    STATE._edgeMousePos = null;
-    updateAdjacencyTable();
-    render();
-  }
+  scheduleRender();
 }
 
 function handleEventToggle(cx, cy) {
@@ -1944,7 +1960,7 @@ function handleEventToggle(cx, cy) {
     showToast(`Event anchored to W${wpId}`);
   }
   renderEventsPanel();
-  render();
+  scheduleRender();
 }
 
 function handleDenseClick(wx, wy) {
@@ -1952,15 +1968,15 @@ function handleDenseClick(wx, wy) {
     // First point
     STATE.densePath.p1 = { wx, wy };
     addWaypoint(wx, wy); // Place start WP
-    showToast('Dense path: P1 set — click P2');
-    render();
+    showToast('Waypoints: P1 set — click P2');
+    scheduleRender();
   } else {
     // Second point: generate dense path
     const { wx: wx1, wy: wy1 } = STATE.densePath.p1;
     createDensePath(wx1, wy1, wx, wy);
     STATE.densePath.p1 = null;
     updateAdjacencyTable();
-    render();
+    scheduleRender();
   }
 }
 
@@ -1969,7 +1985,7 @@ function cancelCurrentAction() {
   STATE.edgeStartWpId = null;
   STATE._edgeMousePos = null;
   STATE.densePath.p1  = null;
-  render();
+  scheduleRender();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2032,6 +2048,19 @@ function updateInspector() {
   }
 }
 
+function escapeHTML(str) {
+  if (!str) return '';
+  return str.replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag])
+  );
+}
+
 /** Update the adjacency list table in the GRAPH tab */
 function updateAdjacencyTable() {
   const tbody = document.getElementById('adj-tbody');
@@ -2040,7 +2069,7 @@ function updateAdjacencyTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${wp.id}</td>
-      <td>${wp.label || '—'}</td>
+      <td>${escapeHTML(wp.label) || '—'}</td>
       <td>${Array.from(wp.neighbors).map(n => `W${n}`).join(', ') || '—'}</td>
     `;
     tbody.appendChild(tr);
@@ -2051,7 +2080,7 @@ function updateAdjacencyTable() {
 document.getElementById('wp-label-input').addEventListener('input', e => {
   if (STATE.selectedWpId === null) return;
   const wp = STATE.waypoints.get(STATE.selectedWpId);
-  if (wp) { wp.label = e.target.value; render(); updateAdjacencyTable(); }
+  if (wp) { wp.label = e.target.value; scheduleRender(); updateAdjacencyTable(); }
 });
 
 // Apply edge property changes
@@ -2081,7 +2110,7 @@ document.getElementById('btn-apply-edge').addEventListener('click', () => {
   if (tWp && newDir === 'bidirectional') tWp.neighbors.add(edge.from);
 
   updateAdjacencyTable();
-  render();
+  scheduleRender();
   showToast('Edge updated');
 });
 
@@ -2183,7 +2212,7 @@ function renderEventsPanel() {
     btn.addEventListener('click', () => {
       STATE.events.delete(btn.dataset.wpid);
       renderEventsPanel();
-      render();
+      scheduleRender();
     });
   });
 
@@ -2370,7 +2399,7 @@ async function exportToDb() {
       lane_width  REAL
     );
     CREATE TABLE IF NOT EXISTS events (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      id          INTEGER PRIMARY KEY,
       waypoint_id TEXT,
       trigger     TEXT,
       action_type TEXT,
@@ -2446,7 +2475,7 @@ async function exportToDb() {
 /** Import a .db file, validate schema, and reconstruct the workspace */
 async function importFromDb(file) {
   if (typeof initSqlJs === 'undefined') {
-    showToast('sql.js not loaded'); return;
+    showToast('sql.js not loaded — check internet connection'); return;
   }
 
   const SQL = await initSqlJs({
@@ -2551,7 +2580,7 @@ async function importFromDb(file) {
   fitView();
   updateAdjacencyTable();
   renderEventsPanel();
-  render();
+  scheduleRender();
   showToast(`Imported: ${STATE.waypoints.size} waypoints, ${STATE.edges.size} edges, ${STATE.events.size} events`);
 }
 
@@ -2573,7 +2602,7 @@ function clearAll(confirm = true) {
   updateAdjacencyTable();
   renderEventsPanel();
   updateInspector();
-  render();
+  scheduleRender();
   if (confirm) showToast('Workspace cleared');
 }
 
@@ -2587,17 +2616,14 @@ document.addEventListener('keydown', e => {
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
   switch (e.key.toLowerCase()) {
-    case 's': setTool('select');   break;
-    case 'w': setTool('waypoint'); break;
-    case 'e': setTool('edge');     break;
-    case 'v': setTool('event');    break;
-    case 'd': setTool('dense');    break;
-    case 'p': setTool('pan');      break;
+    case '1': setTool('select');   break;
+    case '2': setTool('pan');      break;
+    case '3': setTool('dense');    break;
+    case '4': setTool('event');    break;
     case 'escape': cancelCurrentAction(); break;
     case 'f': fitView(); break;
 
     case 'delete':
-    case 'backspace':
       // Delete selected element and update adjacency list
       if (STATE.selectedWpId !== null) {
         deleteWaypoint(STATE.selectedWpId);
@@ -2605,12 +2631,12 @@ document.addEventListener('keydown', e => {
         updateInspector();
         updateAdjacencyTable();
         renderEventsPanel();
-        render();
+        scheduleRender();
       } else if (STATE.selectedEdgeId !== null) {
         deleteEdge(STATE.selectedEdgeId);
         STATE.selectedEdgeId = null;
         updateInspector();
-        render();
+        scheduleRender();
       }
       break;
   }
@@ -2724,7 +2750,7 @@ document.getElementById('file-db').addEventListener('change', async e => {
     if (id === 'map-origin-x')   STATE.map.originX    = parseFloat(e.target.value) || 0;
     if (id === 'map-origin-y')   STATE.map.originY    = parseFloat(e.target.value) || 0;
     if (id === 'map-origin-yaw') STATE.map.originYaw  = parseFloat(e.target.value) || 0;
-    render(); // Rerender since real-world coordinates change
+    scheduleRender(); // Rerender since real-world coordinates change
   });
 });
 
@@ -2821,7 +2847,7 @@ wrapper.addEventListener('drop', async e => {
         document.getElementById('map-import-status').textContent = '✓ PGM: ' + img.width + '×' + img.height;
         showToast('PGM loaded via drag-drop');
         fitView();
-      } catch(err) { showToast('PGM error: ' + err.message); }
+      } catch(err) { showToast('Error: ' + err.message); }
     } else if (file.name.endsWith('.db')) {
       await importFromDb(file);
     }
@@ -2838,7 +2864,7 @@ updateAdjacencyTable();
 
 // Show a welcome message in the toast
 setTimeout(() => {
-  showToast('HospBot Config Suite ready — S/W/E/V/D/P for tools');
+  showToast('ProjectX Configurator ready — 1/2/3/4 for tools');
 }, 600);
 
 </script>
