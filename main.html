@@ -818,7 +818,7 @@
         <span class="icon">⋯</span>WAYPOINTS
       </button>
       <button class="tool-btn" data-tool="event"    title="Anchor Event (4)">
-        <span class="icon">⚡</span>EVENT
+        <span class="icon">◎</span>EVENT
       </button>
     </div>
 
@@ -902,13 +902,12 @@
     <div id="inspector-tabs">
       <div class="itab active" data-tab="props">PROPS</div>
       <div class="itab"        data-tab="events">EVENTS</div>
-      <div class="itab"        data-tab="graph">GRAPH</div>
     </div>
 
     <!-- ── PROPERTIES TAB ── -->
     <div class="itab-content visible" id="tab-props">
       <div id="props-nothing" class="empty-state">
-        <div class="empty-icon">◎</div>
+        <div class="empty-icon">↖</div>
         No element selected.<br />
         Use <b>SELECT</b> tool<br />and click a waypoint or edge.
       </div>
@@ -984,29 +983,10 @@
       <div id="events-list">
         <!-- Dynamically generated event cards appear here -->
         <div class="empty-state">
-          <div class="empty-icon">⚡</div>
+          <div class="empty-icon">◎</div>
           No events yet.<br />
           Select <b>EVENT</b> tool<br />and click a waypoint.
         </div>
-      </div>
-    </div>
-
-    <!-- ── ADJACENCY / GRAPH TAB ── -->
-    <div class="itab-content" id="tab-graph">
-      <div class="section-header">Adjacency List</div>
-      <div style="overflow-x:auto; padding: 4px 0;">
-        <table class="adj-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Label</th>
-              <th>Neighbors</th>
-            </tr>
-          </thead>
-          <tbody id="adj-tbody">
-            <!-- Populated dynamically -->
-          </tbody>
-        </table>
       </div>
     </div>
 
@@ -1790,9 +1770,9 @@ function setTool(toolName) {
 
   const labels = {
     select:  '◈ SELECT',
-    event:   '⚡ EVENT',
-    dense:   '⋯ DENSE PATH',
     pan:     '✥ PAN',
+    event:   '◎ EVENT',
+    dense:   '⋯ WAYPOINTS',
   };
   document.getElementById('status-mode').textContent = labels[toolName] || toolName.toUpperCase();
 
@@ -1869,7 +1849,7 @@ canvas.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseup', e => {
   if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
-  if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); updateAdjacencyTable(); }
+  if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); }
 });
 
 canvas.addEventListener('wheel', e => {
@@ -1975,7 +1955,6 @@ function handleDenseClick(wx, wy) {
     const { wx: wx1, wy: wy1 } = STATE.densePath.p1;
     createDensePath(wx1, wy1, wx, wy);
     STATE.densePath.p1 = null;
-    updateAdjacencyTable();
     scheduleRender();
   }
 }
@@ -2061,26 +2040,11 @@ function escapeHTML(str) {
   );
 }
 
-/** Update the adjacency list table in the GRAPH tab */
-function updateAdjacencyTable() {
-  const tbody = document.getElementById('adj-tbody');
-  tbody.innerHTML = '';
-  STATE.waypoints.forEach(wp => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${wp.id}</td>
-      <td>${escapeHTML(wp.label) || '—'}</td>
-      <td>${Array.from(wp.neighbors).map(n => `W${n}`).join(', ') || '—'}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
 // Listen for waypoint label changes
 document.getElementById('wp-label-input').addEventListener('input', e => {
   if (STATE.selectedWpId === null) return;
   const wp = STATE.waypoints.get(STATE.selectedWpId);
-  if (wp) { wp.label = e.target.value; scheduleRender(); updateAdjacencyTable(); }
+  if (wp) { wp.label = e.target.value; scheduleRender(); }
 });
 
 // Apply edge property changes
@@ -2109,7 +2073,6 @@ document.getElementById('btn-apply-edge').addEventListener('click', () => {
   if (fWp) fWp.neighbors.add(edge.to);
   if (tWp && newDir === 'bidirectional') tWp.neighbors.add(edge.from);
 
-  updateAdjacencyTable();
   scheduleRender();
   showToast('Edge updated');
 });
@@ -2135,7 +2098,7 @@ function renderEventsPanel() {
   if (STATE.events.size === 0) {
     listEl.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">⚡</div>
+        <div class="empty-icon">◎</div>
         No events yet.<br />Select <b>EVENT</b> tool<br />and click a waypoint.
       </div>`;
     return;
@@ -2147,7 +2110,7 @@ function renderEventsPanel() {
 
     card.innerHTML = `
       <div class="event-card-header">
-        <span class="event-wp-id">⚡ Waypoint W${wpId} ${STATE.waypoints.get(wpId)?.label ? '— ' + STATE.waypoints.get(wpId).label : ''}</span>
+        <span class="event-wp-id">◎ Waypoint W${wpId} ${STATE.waypoints.get(wpId)?.label ? '— ' + STATE.waypoints.get(wpId).label : ''}</span>
         <button class="event-remove-btn" data-wpid="${wpId}" title="Remove event">✕</button>
       </div>
 
@@ -2578,7 +2541,6 @@ async function importFromDb(file) {
   db.close();
 
   fitView();
-  updateAdjacencyTable();
   renderEventsPanel();
   scheduleRender();
   showToast(`Imported: ${STATE.waypoints.size} waypoints, ${STATE.edges.size} edges, ${STATE.events.size} events`);
@@ -2599,7 +2561,6 @@ function clearAll(confirm = true) {
   STATE.edgeStartWpId  = null;
   STATE.densePath.p1   = null;
   document.getElementById('map-import-status').textContent = 'No map loaded';
-  updateAdjacencyTable();
   renderEventsPanel();
   updateInspector();
   scheduleRender();
@@ -2629,7 +2590,6 @@ document.addEventListener('keydown', e => {
         deleteWaypoint(STATE.selectedWpId);
         STATE.selectedWpId = null;
         updateInspector();
-        updateAdjacencyTable();
         renderEventsPanel();
         scheduleRender();
       } else if (STATE.selectedEdgeId !== null) {
@@ -2860,7 +2820,6 @@ wrapper.addEventListener('drop', async e => {
 resizeCanvas();
 setTool('select');
 renderEventsPanel();
-updateAdjacencyTable();
 
 // Show a welcome message in the toast
 setTimeout(() => {
