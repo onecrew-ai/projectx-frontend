@@ -1931,7 +1931,7 @@ function handleEventToggle(cx, cy) {
   }
 
   if (!STATE.activeEventId) {
-    showToast('Create or select an Event in the Events tab first!');
+    showToast('Create or select an Event in the Events tab first.');
     return;
   }
 
@@ -2410,7 +2410,7 @@ async function importFromDb(file) {
   }
 
   // ── Validate schema ────────────────────────────────────────────────────────
-  const tables = ['project_meta', 'waypoints', 'edges', 'events'];
+  const tables = ['project_meta', 'waypoints', 'edges'];
   for (const t of tables) {
     try {
       db.run(`SELECT 1 FROM ${t} LIMIT 1`);
