@@ -1094,6 +1094,8 @@ const STATE = {
   // events: Map<waypointId, {onEntry: Action[], onExit: Action[]}>
   // Action = {type: 'Dock'|'Wait'|'Speak'|'Print'|'Custom', param: any}
   events: new Map(),
+  nextEventId: 0,
+  activeEventId: null,
 
   // ── Selection ─────────────────────────────────────────────────────────────
   selectedWpId:   null,
@@ -1478,7 +1480,7 @@ function renderWaypoint(wp) {
   ctx.translate(cx, cy);
 
   const isSelected   = STATE.selectedWpId === wp.id;
-  const hasEvent     = STATE.events.has(wp.id);
+  const hasEvent     = !!wp.eventId;
   const radius       = isSelected ? 9 : 7;
 
   // ── Event glow ring ───────────────────────────────────────────────────────
@@ -1601,7 +1603,7 @@ function addWaypoint(wx, wy) {
 
   // ── Create new waypoint ───────────────────────────────────────────────────
   const id  = String(STATE.nextWpId++);
-  const wp  = { id, x: wx, y: wy, label: '', neighbors: new Set() };
+  const wp  = { id, x: wx, y: wy, label: '', neighbors: new Set(), eventId: null };
   STATE.waypoints.set(id, wp);
   return id;
 }
@@ -1922,23 +1924,28 @@ function doPan(x, y) {
 }
 
 function handleEventToggle(cx, cy) {
-  // Find nearest waypoint within threshold
   const nearWp = nearestWaypoint(cx, cy);
   if (!nearWp || nearWp.distPx > STATE.snapThreshold * 1.5) {
     showToast('No waypoint nearby. Click on a waypoint to anchor event.');
     return;
   }
-  const wpId = nearWp.wpId;
 
-  if (STATE.events.has(wpId)) {
-    // Toggle off: remove event anchor
-    STATE.events.delete(wpId);
-    showToast(`Event removed from W${wpId}`);
-  } else {
-    // Toggle on: create new event anchor with empty action arrays
-    STATE.events.set(wpId, { onEntry: [], onExit: [] });
-    showToast(`Event anchored to W${wpId}`);
+  if (!STATE.activeEventId) {
+    showToast('Create or select an Event in the Events tab first!');
+    return;
   }
+
+  const wp = STATE.waypoints.get(nearWp.wpId);
+  
+  // Toggle logic: If it already has this event, remove it. Otherwise, assign it.
+  if (wp.eventId === STATE.activeEventId) {
+    wp.eventId = null;
+    showToast(`Event removed from W${wp.id}`);
+  } else {
+    wp.eventId = STATE.activeEventId;
+    showToast(`Event '${STATE.events.get(STATE.activeEventId).name}' anchored to W${wp.id}`);
+  }
+  
   renderEventsPanel();
   scheduleRender();
 }
@@ -2095,100 +2102,72 @@ function renderEventsPanel() {
   const listEl = document.getElementById('events-list');
   listEl.innerHTML = '';
 
+  // 1. Top Control: Create New Event
+  const topCtrl = document.createElement('div');
+  topCtrl.innerHTML = `<button class="hbtn primary" id="btn-create-event" style="width:100%; margin-bottom:12px;">+ CREATE NEW EVENT</button>`;
+  listEl.appendChild(topCtrl);
+
   if (STATE.events.size === 0) {
-    listEl.innerHTML = `
+    listEl.insertAdjacentHTML('beforeend', `
       <div class="empty-state">
         <div class="empty-icon">◎</div>
-        No events yet.<br />Select <b>EVENT</b> tool<br />and click a waypoint.
-      </div>`;
-    return;
+        No events created yet.<br />Click above to start.
+      </div>`);
   }
 
-  STATE.events.forEach((event, wpId) => {
+  // 2. Render Event Cards
+  STATE.events.forEach(event => {
+    // Find all waypoints that have this event assigned
+    const assignedWps = [];
+    STATE.waypoints.forEach(wp => { if (wp.eventId === event.id) assignedWps.push(wp.id); });
+
+    const isActive = STATE.activeEventId === event.id;
     const card = document.createElement('div');
     card.className = 'event-card';
+    if (isActive) card.style.borderColor = 'var(--accent-green)';
 
     card.innerHTML = `
-      <div class="event-card-header">
-        <span class="event-wp-id">◎ Waypoint W${wpId} ${STATE.waypoints.get(wpId)?.label ? '— ' + STATE.waypoints.get(wpId).label : ''}</span>
-        <button class="event-remove-btn" data-wpid="${wpId}" title="Remove event">✕</button>
+      <div class="event-card-header btn-activate-event" data-id="${event.id}" style="background: ${isActive ? 'rgba(0,255,136,0.1)' : 'rgba(255,170,0,0.08)'}; cursor: pointer; transition: background 0.2s;">
+        <div style="display:flex; align-items:center; gap: 8px; flex: 1;">
+          <span style="color: ${isActive ? 'var(--accent-green)' : 'var(--text-dim)'}; font-size: 14px;">${isActive ? '●' : '○'}</span>
+          <input type="text" class="prop-input ev-name-input" data-id="${event.id}" value="${escapeHTML(event.name)}" placeholder="Event Name" style="width: 140px; border-color: transparent; background: rgba(0,0,0,0.2); pointer-events: auto;" />
+        </div>
+        <button class="event-remove-btn" data-id="${event.id}" title="Delete event entirely">✕</button>
+      </div>
+      
+      <div style="padding: 4px 10px; font-size: 9px; color: var(--text-dim); border-bottom: 1px solid var(--border-dim); background: var(--bg-panel);">
+        Anchored to: ${assignedWps.length ? assignedWps.map(id => `<span class="neighbor-chip" style="border-color:var(--accent-amber); color:var(--accent-amber);">W${id}</span>`).join('') : 'None'}
       </div>
 
-      <!-- ON ENTRY triggers -->
       <div class="trigger-section">
         <div class="trigger-label">▶ On Entry</div>
-        <ul class="action-list" id="entry-actions-${wpId}">
-          ${renderActionItems(event.onEntry, wpId, 'entry')}
+        <ul class="action-list">
+          ${renderActionItems(event.onEntry, event.id, 'entry')}
         </ul>
-        <!-- Add entry action -->
         <div class="add-action-row">
-          <select id="entry-type-${wpId}">
+          <select id="entry-type-${event.id}">
             ${Object.keys(ACTION_TYPES).map(k => `<option value="${k}">${k}</option>`).join('')}
           </select>
-          <input type="text" id="entry-param-${wpId}" placeholder="param" />
-          <button class="add-action-btn" data-wpid="${wpId}" data-trigger="entry">+</button>
+          <input type="text" id="entry-param-${event.id}" placeholder="param" />
+          <button class="add-action-btn" data-evid="${event.id}" data-trigger="entry">+</button>
         </div>
       </div>
 
-      <!-- ON EXIT triggers -->
       <div class="trigger-section" style="border-bottom:none;">
         <div class="trigger-label">◀ On Exit</div>
-        <ul class="action-list" id="exit-actions-${wpId}">
-          ${renderActionItems(event.onExit, wpId, 'exit')}
+        <ul class="action-list">
+          ${renderActionItems(event.onExit, event.id, 'exit')}
         </ul>
-        <!-- Add exit action -->
         <div class="add-action-row">
-          <select id="exit-type-${wpId}">
+          <select id="exit-type-${event.id}">
             ${Object.keys(ACTION_TYPES).map(k => `<option value="${k}">${k}</option>`).join('')}
           </select>
-          <input type="text" id="exit-param-${wpId}" placeholder="param" />
-          <button class="add-action-btn" data-wpid="${wpId}" data-trigger="exit">+</button>
+          <input type="text" id="exit-param-${event.id}" placeholder="param" />
+          <button class="add-action-btn" data-evid="${event.id}" data-trigger="exit">+</button>
         </div>
       </div>
     `;
-
     listEl.appendChild(card);
-  });
-
-  // ── Bind add-action buttons ───────────────────────────────────────────────
-  listEl.querySelectorAll('.add-action-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const wpId   = btn.dataset.wpid;
-      const trig   = btn.dataset.trigger; // 'entry' | 'exit'
-      const typeEl = document.getElementById(`${trig}-type-${wpId}`);
-      const paramEl= document.getElementById(`${trig}-param-${wpId}`);
-      const type   = typeEl.value;
-      const param  = paramEl.value.trim();
-
-      const event  = STATE.events.get(wpId);
-      if (!event) return;
-
-      const array  = trig === 'entry' ? event.onEntry : event.onExit;
-      array.push({ type, param });
-      paramEl.value = '';
-      renderEventsPanel(); // Re-render to show new action
-    });
-  });
-
-  // ── Bind remove-event buttons ─────────────────────────────────────────────
-  listEl.querySelectorAll('.event-remove-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      STATE.events.delete(btn.dataset.wpid);
-      renderEventsPanel();
-      scheduleRender();
-    });
-  });
-
-  // ── Bind action delete buttons ────────────────────────────────────────────
-  listEl.querySelectorAll('.action-del').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const { wpid, trig, idx } = btn.dataset;
-      const event = STATE.events.get(wpid);
-      if (!event) return;
-      const arr = trig === 'entry' ? event.onEntry : event.onExit;
-      arr.splice(Number(idx), 1);
-      renderEventsPanel();
-    });
   });
 }
 
@@ -2335,40 +2314,13 @@ async function exportToDb() {
 
   // ── Create schema ──────────────────────────────────────────────────────────
   db.run(`
-    CREATE TABLE IF NOT EXISTS project_meta (
-      key   TEXT PRIMARY KEY,
-      value TEXT
-    );
-    CREATE TABLE IF NOT EXISTS map_meta (
-      key   TEXT PRIMARY KEY,
-      value TEXT
-    );
-    CREATE TABLE IF NOT EXISTS waypoints (
-      id    TEXT PRIMARY KEY,
-      x     REAL,
-      y     REAL,
-      label TEXT
-    );
-    CREATE TABLE IF NOT EXISTS waypoint_neighbors (
-      waypoint_id   TEXT,
-      neighbor_id   TEXT
-    );
-    CREATE TABLE IF NOT EXISTS edges (
-      id          TEXT PRIMARY KEY,
-      from_wp     TEXT,
-      to_wp       TEXT,
-      direction   TEXT,
-      speed_limit REAL,
-      lane_width  REAL
-    );
-    CREATE TABLE IF NOT EXISTS events (
-      id          INTEGER PRIMARY KEY,
-      waypoint_id TEXT,
-      trigger     TEXT,
-      action_type TEXT,
-      action_param TEXT,
-      action_order INTEGER
-    );
+    CREATE TABLE IF NOT EXISTS project_meta (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS map_meta (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS waypoints (id TEXT PRIMARY KEY, x REAL, y REAL, label TEXT, event_id TEXT);
+    CREATE TABLE IF NOT EXISTS waypoint_neighbors (waypoint_id TEXT, neighbor_id TEXT);
+    CREATE TABLE IF NOT EXISTS edges (id TEXT PRIMARY KEY, from_wp TEXT, to_wp TEXT, direction TEXT, speed_limit REAL, lane_width REAL);
+    CREATE TABLE IF NOT EXISTS event_defs (id TEXT PRIMARY KEY, name TEXT);
+    CREATE TABLE IF NOT EXISTS event_actions (event_id TEXT, trigger TEXT, action_type TEXT, action_param TEXT, action_order INTEGER);
   `);
 
   // ── Insert project metadata ────────────────────────────────────────────────
@@ -2391,16 +2343,19 @@ async function exportToDb() {
     image_width:  String(STATE.map.imageWidth),
     image_height: String(STATE.map.imageHeight),
   };
+
+  if (STATE.map.image && STATE.map.image.src) {
+    mapM.image_data_url = STATE.map.image.src;
+  }
+
   Object.entries(mapM).forEach(([k, v]) => {
     db.run('INSERT INTO map_meta VALUES (?, ?)', [k, v]);
   });
 
   // ── Insert waypoints ───────────────────────────────────────────────────────
   STATE.waypoints.forEach(wp => {
-    db.run('INSERT INTO waypoints VALUES (?, ?, ?, ?)', [wp.id, wp.x, wp.y, wp.label || '']);
-    wp.neighbors.forEach(nid => {
-      db.run('INSERT INTO waypoint_neighbors VALUES (?, ?)', [wp.id, nid]);
-    });
+    db.run('INSERT INTO waypoints VALUES (?, ?, ?, ?, ?)', [wp.id, wp.x, wp.y, wp.label || '', wp.eventId || '']);
+    wp.neighbors.forEach(nid => { db.run('INSERT INTO waypoint_neighbors VALUES (?, ?)', [wp.id, nid]); });
   });
 
   // ── Insert edges ───────────────────────────────────────────────────────────
@@ -2411,15 +2366,15 @@ async function exportToDb() {
   });
 
   // ── Insert events ──────────────────────────────────────────────────────────
-  STATE.events.forEach((event, wpId) => {
+  STATE.events.forEach(evt => {
+    db.run('INSERT INTO event_defs VALUES (?, ?)', [evt.id, evt.name]);
     const insertActions = (actions, trigger) => {
       actions.forEach((action, order) => {
-        db.run('INSERT INTO events (waypoint_id, trigger, action_type, action_param, action_order) VALUES (?,?,?,?,?)',
-          [wpId, trigger, action.type, action.param || '', order]);
+        db.run('INSERT INTO event_actions VALUES (?,?,?,?,?)', [evt.id, trigger, action.type, action.param || '', order]);
       });
     };
-    insertActions(event.onEntry, 'entry');
-    insertActions(event.onExit,  'exit');
+    insertActions(evt.onEntry, 'entry');
+    insertActions(evt.onExit,  'exit');
   });
 
   // ── Export binary and trigger download ────────────────────────────────────
@@ -2490,15 +2445,35 @@ async function importFromDb(file) {
       if (k === 'origin_yaw')     { STATE.map.originYaw      = parseFloat(v); document.getElementById('map-origin-yaw').value = v; }
       if (k === 'image_width')  STATE.map.imageWidth  = parseInt(v);
       if (k === 'image_height') STATE.map.imageHeight = parseInt(v);
+      if (k === 'image_data_url') { importedImageDataUrl = v };
     });
   }
 
-  // ── Load waypoints ─────────────────────────────────────────────────────────
-  const wpRows = db.exec('SELECT id, x, y, label FROM waypoints');
+  if (importedImageDataUrl) {
+    await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        STATE.map.image = img;
+        resolve();
+      };
+      img.src = importedImageDataUrl;
+    });
+  }
+
+  // ── Load waypoints (Dynamic check for backward compatibility) ──────────────
+  const wpRows = db.exec('SELECT * FROM waypoints');
   if (wpRows.length) {
-    wpRows[0].values.forEach(([id, x, y, label]) => {
-      STATE.waypoints.set(id, { id, x: Number(x), y: Number(y), label: label || '', neighbors: new Set() });
-      const idNum = parseInt(id);
+    const cols = wpRows[0].columns;
+    const idxId = cols.indexOf('id'), idxX = cols.indexOf('x'), idxY = cols.indexOf('y');
+    const idxLabel = cols.indexOf('label'), idxEventId = cols.indexOf('event_id');
+    
+    wpRows[0].values.forEach(row => {
+      const eventId = idxEventId > -1 && row[idxEventId] !== '' ? row[idxEventId] : null;
+      STATE.waypoints.set(row[idxId], { 
+        id: row[idxId], x: Number(row[idxX]), y: Number(row[idxY]), 
+        label: row[idxLabel] || '', neighbors: new Set(), eventId 
+      });
+      const idNum = parseInt(row[idxId]);
       if (!isNaN(idNum) && idNum >= STATE.nextWpId) STATE.nextWpId = idNum + 1;
     });
   }
@@ -2527,15 +2502,46 @@ async function importFromDb(file) {
     });
   }
 
-  // ── Load events ────────────────────────────────────────────────────────────
-  const evtRows = db.exec('SELECT waypoint_id, trigger, action_type, action_param, action_order FROM events ORDER BY waypoint_id, trigger, action_order');
-  if (evtRows.length) {
-    evtRows[0].values.forEach(([wpId, trig, atype, aparam]) => {
-      if (!STATE.events.has(wpId)) STATE.events.set(wpId, { onEntry: [], onExit: [] });
-      const evt = STATE.events.get(wpId);
-      const arr = trig === 'entry' ? evt.onEntry : evt.onExit;
-      arr.push({ type: atype, param: aparam || '' });
-    });
+  // ── Load events (Handles both New and Old schema) ──────────────────────────
+  let isNewSchema = false;
+  try { db.run('SELECT 1 FROM event_defs LIMIT 1'); isNewSchema = true; } catch(e) {}
+
+  if (isNewSchema) {
+    const defRows = db.exec('SELECT id, name FROM event_defs');
+    if (defRows.length) {
+      defRows[0].values.forEach(([id, name]) => {
+        STATE.events.set(id, { id, name, onEntry: [], onExit: [] });
+        const idNum = parseInt(id.replace('E', ''));
+        if (!isNaN(idNum) && idNum >= STATE.nextEventId) STATE.nextEventId = idNum + 1;
+      });
+    }
+    const actRows = db.exec('SELECT event_id, trigger, action_type, action_param FROM event_actions ORDER BY event_id, trigger, action_order');
+    if (actRows.length) {
+      actRows[0].values.forEach(([evId, trig, atype, aparam]) => {
+        const evt = STATE.events.get(evId);
+        if (evt) {
+          const arr = trig === 'entry' ? evt.onEntry : evt.onExit;
+          arr.push({ type: atype, param: aparam || '' });
+        }
+      });
+    }
+  } else {
+    // Legacy Import: Convert old waypoint-based events into reusable events
+    const evtRows = db.exec('SELECT waypoint_id, trigger, action_type, action_param FROM events ORDER BY waypoint_id, trigger, action_order');
+    if (evtRows.length) {
+      evtRows[0].values.forEach(([wpId, trig, atype, aparam]) => {
+        const evId = 'E' + wpId; // Generate pseudo-ID based on waypoint
+        if (!STATE.events.has(evId)) {
+          STATE.events.set(evId, { id: evId, name: `Legacy Event ${wpId}`, onEntry: [], onExit: [] });
+          const wp = STATE.waypoints.get(wpId);
+          if (wp) wp.eventId = evId;
+        }
+        const evt = STATE.events.get(evId);
+        const arr = trig === 'entry' ? evt.onEntry : evt.onExit;
+        arr.push({ type: atype, param: aparam || '' });
+      });
+      STATE.nextEventId = STATE.waypoints.size; 
+    }
   }
 
   db.close();
@@ -2636,6 +2642,79 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 // Project name header sync
 document.getElementById('project-name-display').addEventListener('input', e => {
   STATE.project.name = e.target.value;
+});
+
+// ── Tool buttons ───────────────────────────────────────────────────────────
+
+// Add events
+document.getElementById('events-list').addEventListener('click', (e) => {
+  // 1. Create New Event
+  if (e.target.id === 'btn-create-event') {
+    const id = 'E' + (STATE.nextEventId++);
+    STATE.events.set(id, { id, name: `Sequence ${id}`, onEntry: [], onExit: [] });
+    STATE.activeEventId = id; // Auto-activate new event
+    setTool('event'); // Auto-switch to event tool
+    renderEventsPanel();
+    scheduleRender();
+    return;
+  }
+
+  // 2. Set Event as Active (Clicking the header)
+  const header = e.target.closest('.btn-activate-event');
+  if (header && !e.target.matches('.ev-name-input') && !e.target.matches('.event-remove-btn')) {
+    STATE.activeEventId = header.dataset.id;
+    setTool('event');
+    renderEventsPanel();
+    return;
+  }
+
+  // 3. Delete Event entirely
+  if (e.target.matches('.event-remove-btn')) {
+    const evId = e.target.dataset.id;
+    STATE.events.delete(evId);
+    if (STATE.activeEventId === evId) STATE.activeEventId = null;
+    // Strip this event from any waypoints that had it
+    STATE.waypoints.forEach(wp => { if (wp.eventId === evId) wp.eventId = null; });
+    renderEventsPanel();
+    scheduleRender();
+    return;
+  }
+
+  // 4. Add Action
+  if (e.target.matches('.add-action-btn')) {
+    const evId = e.target.dataset.evid;
+    const trig = e.target.dataset.trigger;
+    const type = document.getElementById(`${trig}-type-${evId}`).value;
+    const param = document.getElementById(`${trig}-param-${evId}`).value.trim();
+    
+    const event = STATE.events.get(evId);
+    if (event) {
+      const array = trig === 'entry' ? event.onEntry : event.onExit;
+      array.push({ type, param });
+      renderEventsPanel();
+    }
+    return;
+  }
+
+  // 5. Remove Action
+  if (e.target.matches('.action-del')) {
+    const { wpid, trig, idx } = e.target.dataset;
+    const event = STATE.events.get(wpid); // Note: dataset still says wpid from renderActionItems, but it's passing evId now
+    if (event) {
+      const arr = trig === 'entry' ? event.onEntry : event.onExit;
+      arr.splice(Number(idx), 1);
+      renderEventsPanel();
+    }
+  }
+});
+
+// Update event names on change (so it doesn't lose focus while typing)
+document.getElementById('events-list').addEventListener('change', (e) => {
+  if (e.target.matches('.ev-name-input')) {
+    const evId = e.target.dataset.id;
+    const event = STATE.events.get(evId);
+    if (event) event.name = e.target.value;
+  }
 });
 
 // ── Map import dropzone click ──────────────────────────────────────────────
@@ -2766,8 +2845,6 @@ function _spacePanDown(e) {
   const { x, y } = mouseToCanvas(e);
   startPan(x, y);
 }
-
-// To edit
 
 // ── Drag-and-drop map files onto canvas ───────────────────────────────────
 wrapper.addEventListener('dragover', e => { e.preventDefault(); });
