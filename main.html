@@ -52,7 +52,7 @@
       background: var(--bg-void);
       color: var(--text-primary);
       font-family: var(--font-body);
-      font-size: 13px;
+      font-size: 16px;
     }
 
     /* Thin scrollbars to match dark theme */
@@ -65,8 +65,8 @@
        =================================================================== */
     #app {
       display: grid;
-      grid-template-rows: 48px 1fr 28px;
-      grid-template-columns: 220px 1fr 280px;
+      grid-template-rows: 64px 1fr 40px; 
+      grid-template-columns: 280px 1fr 340px;
       grid-template-areas:
         "header  header   header"
         "sidebar canvas   inspector"
@@ -92,7 +92,7 @@
 
     .logo {
       font-family: var(--font-display);
-      font-size: 14px;
+      font-size: 17px;
       font-weight: 800;
       color: var(--accent-cyan);
       letter-spacing: 2px;
@@ -109,7 +109,7 @@
     /* Project name editable field in header */
     #project-name-display {
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 15px;
       color: var(--text-mono);
       background: none;
       border: none;
@@ -124,7 +124,7 @@
     /* Header action buttons */
     .hbtn {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       letter-spacing: 1px;
       padding: 5px 12px;
       border: 1px solid var(--border-glow);
@@ -145,7 +145,7 @@
     /* Coordinate readout in header */
     .coord-hud {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-dim);
     }
     .coord-hud span { color: var(--text-mono); }
@@ -165,7 +165,7 @@
     /* Section headers inside panels */
     .section-header {
       font-family: var(--font-display);
-      font-size: 9px;
+      font-size: 12px;
       letter-spacing: 2px;
       color: var(--text-dim);
       text-transform: uppercase;
@@ -206,12 +206,12 @@
       transition: all 0.15s;
       color: var(--text-dim);
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       letter-spacing: 0.5px;
       text-align: center;
       user-select: none;
     }
-    .tool-btn .icon { font-size: 18px; line-height: 1; }
+    .tool-btn .icon { font-size: 13px; line-height: 1; }
     .tool-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
     .tool-btn.active {
       border-color: var(--accent-cyan);
@@ -237,7 +237,7 @@
     }
     .form-label {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       letter-spacing: 1px;
       color: var(--text-dim);
       text-transform: uppercase;
@@ -247,7 +247,7 @@
       border: 1px solid var(--border-dim);
       color: var(--text-primary);
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 15px;
       padding: 5px 8px;
       border-radius: var(--radius-sm);
       outline: none;
@@ -258,7 +258,7 @@
       border-color: var(--accent-cyan);
     }
     .form-select option { background: var(--bg-panel); }
-    .form-textarea { resize: vertical; min-height: 60px; font-size: 11px; }
+    .form-textarea { resize: vertical; min-height: 60px; font-size: 14px; }
 
     /* Map import zone */
     #map-import-zone {
@@ -272,10 +272,10 @@
       background: var(--bg-input);
     }
     #map-import-zone:hover { border-color: var(--accent-cyan); background: rgba(0,212,255,0.04); }
-    #map-import-zone .import-icon { font-size: 22px; color: var(--text-dim); }
+    #map-import-zone .import-icon { font-size: 25px; color: var(--text-dim); }
     #map-import-zone p {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-dim);
       margin-top: 4px;
     }
@@ -290,7 +290,7 @@
     }
     .graph-btn {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       padding: 5px 8px;
       background: var(--bg-input);
       border: 1px solid var(--border-dim);
@@ -310,7 +310,7 @@
     }
     .slider-row label {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       color: var(--text-dim);
       white-space: nowrap;
     }
@@ -320,7 +320,7 @@
     }
     .slider-val {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-mono);
       min-width: 30px;
     }
@@ -362,7 +362,7 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-glow);
       color: var(--accent-cyan);
-      font-size: 14px;
+      font-size: 17px;
       cursor: pointer;
       border-radius: var(--radius-sm);
       display: flex;
@@ -375,7 +375,7 @@
     /* Zoom level indicator */
     #zoom-label {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       color: var(--text-dim);
       text-align: center;
     }
@@ -384,7 +384,7 @@
     #origin-label {
       position: absolute;
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       color: var(--accent-amber);
       pointer-events: none;
     }
@@ -410,7 +410,7 @@
       flex: 1;
       padding: 8px 4px;
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       letter-spacing: 1px;
       text-transform: uppercase;
       color: var(--text-dim);
@@ -440,13 +440,13 @@
     }
     .prop-key {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-dim);
       min-width: 90px;
     }
     .prop-val {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-mono);
       text-align: right;
       flex: 1;
@@ -456,7 +456,7 @@
       border: 1px solid var(--border-dim);
       color: var(--text-primary);
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       padding: 3px 6px;
       border-radius: var(--radius-sm);
       outline: none;
@@ -469,7 +469,7 @@
       border: 1px solid var(--border-dim);
       color: var(--text-primary);
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       padding: 3px 6px;
       border-radius: var(--radius-sm);
       outline: none;
@@ -484,7 +484,7 @@
       border-radius: 2px;
       padding: 1px 5px;
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       color: var(--accent-cyan);
       margin: 2px;
     }
@@ -495,10 +495,10 @@
       text-align: center;
       color: var(--text-dim);
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       line-height: 1.8;
     }
-    .empty-icon { font-size: 28px; opacity: 0.3; margin-bottom: 8px; }
+    .empty-icon { font-size: 31px; opacity: 0.3; margin-bottom: 8px; }
 
     /* ===================================================================
        EVENTS PANEL
@@ -520,7 +520,7 @@
     }
     .event-wp-id {
       font-family: var(--font-display);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--accent-amber);
     }
     .event-remove-btn {
@@ -528,7 +528,7 @@
       border: none;
       color: var(--accent-red);
       cursor: pointer;
-      font-size: 12px;
+      font-size: 15px;
       line-height: 1;
     }
 
@@ -538,7 +538,7 @@
     }
     .trigger-label {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 12px;
       color: var(--text-dim);
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -553,7 +553,7 @@
       gap: 5px;
       padding: 2px 0;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-mono);
     }
     .action-type-badge {
@@ -561,7 +561,7 @@
       background: rgba(0,119,204,0.25);
       border-radius: 2px;
       color: var(--accent-cyan);
-      font-size: 9px;
+      font-size: 12px;
       min-width: 45px;
       text-align: center;
     }
@@ -571,7 +571,7 @@
       border: none;
       color: var(--text-dim);
       cursor: pointer;
-      font-size: 11px;
+      font-size: 14px;
     }
     .action-del:hover { color: var(--accent-red); }
 
@@ -588,7 +588,7 @@
       border: 1px solid var(--border-dim);
       color: var(--text-primary);
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       padding: 3px 6px;
       border-radius: var(--radius-sm);
       outline: none;
@@ -611,7 +611,7 @@
       width: 100%;
       border-collapse: collapse;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
     }
     .adj-table th {
       color: var(--text-dim);
@@ -641,7 +641,7 @@
       padding: 0 12px;
       gap: 16px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-dim);
     }
     .status-item span { color: var(--text-mono); }
@@ -691,7 +691,7 @@
     }
     .modal-btn {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       padding: 5px 14px;
       border: 1px solid var(--border-glow);
       background: transparent;
@@ -717,7 +717,7 @@
       border-radius: var(--radius-md);
       padding: 8px 20px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       color: var(--accent-cyan);
       opacity: 0;
       pointer-events: none;
@@ -741,7 +741,7 @@
       border-radius: var(--radius-md);
       padding: 5px 16px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 14px;
       color: var(--accent-amber);
       pointer-events: none;
       display: none;
@@ -976,7 +976,7 @@
     <div class="itab-content" id="tab-events">
       <div class="section-header" style="justify-content: space-between;">
         Spatial Events
-        <span style="font-family: var(--font-mono); font-size:9px; color:var(--accent-amber);">
+        <span style="font-family: var(--font-mono); font-size:12px; color:var(--accent-amber);">
           Use EVENT tool to anchor
         </span>
       </div>
@@ -1517,7 +1517,7 @@ function renderWaypoint(wp) {
 
   // ── ID / label text ───────────────────────────────────────────────────────
   const label = wp.label || `W${wp.id}`;
-  ctx.font      = '9px Share Tech Mono';
+  ctx.font      = '20px Share Tech Mono';
   ctx.fillStyle = isSelected ? '#ffaa00' : '#7ab8d4';
   ctx.textAlign = 'center';
   ctx.fillText(label, 0, -(radius + 5));
@@ -2010,7 +2010,7 @@ function updateInspector() {
       chipsEl.appendChild(chip);
     });
     if (wp.neighbors.size === 0) {
-      chipsEl.innerHTML = '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">No connections</span>';
+      chipsEl.innerHTML = '<span style="font-family:var(--font-mono);font-size:13px;color:var(--text-dim);">No connections</span>';
     }
 
   } else if (STATE.selectedEdgeId !== null) {
@@ -2129,13 +2129,13 @@ function renderEventsPanel() {
     card.innerHTML = `
       <div class="event-card-header btn-activate-event" data-id="${event.id}" style="background: ${isActive ? 'rgba(0,255,136,0.1)' : 'rgba(255,170,0,0.08)'}; cursor: pointer; transition: background 0.2s;">
         <div style="display:flex; align-items:center; gap: 8px; flex: 1;">
-          <span style="color: ${isActive ? 'var(--accent-green)' : 'var(--text-dim)'}; font-size: 14px;">${isActive ? '●' : '○'}</span>
+          <span style="color: ${isActive ? 'var(--accent-green)' : 'var(--text-dim)'}; font-size: 17px;">${isActive ? '●' : '○'}</span>
           <input type="text" class="prop-input ev-name-input" data-id="${event.id}" value="${escapeHTML(event.name)}" placeholder="Event Name" style="width: 140px; border-color: transparent; background: rgba(0,0,0,0.2); pointer-events: auto;" />
         </div>
         <button class="event-remove-btn" data-id="${event.id}" title="Delete event entirely">✕</button>
       </div>
       
-      <div style="padding: 4px 10px; font-size: 9px; color: var(--text-dim); border-bottom: 1px solid var(--border-dim); background: var(--bg-panel);">
+      <div style="padding: 4px 10px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border-dim); background: var(--bg-panel);">
         Anchored to: ${assignedWps.length ? assignedWps.map(id => `<span class="neighbor-chip" style="border-color:var(--accent-amber); color:var(--accent-amber);">W${id}</span>`).join('') : 'None'}
       </div>
 
@@ -2173,7 +2173,7 @@ function renderEventsPanel() {
 
 /** Build HTML for an action list */
 function renderActionItems(actions, wpId, trig) {
-  if (!actions.length) return `<li style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);padding:2px 0;">No actions</li>`;
+  if (!actions.length) return `<li style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:2px 0;">No actions</li>`;
   return actions.map((a, i) => `
     <li class="action-item">
       <span style="color:var(--text-dim);min-width:16px;text-align:right;">${i+1}.</span>
