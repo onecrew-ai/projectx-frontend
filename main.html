@@ -1426,18 +1426,6 @@ function renderEdge(edge) {
   const angle = Math.atan2(by - ay, bx - ax);
 
   drawArrow(midX, midY, angle, edge.direction, isSelected);
-
-  // ── Speed limit label ─────────────────────────────────────────────────────
-  const fontSize = Math.max(7, 9 / STATE.view.zoom);
-  ctx.save();
-  ctx.font      = `${fontSize}px Share Tech Mono`;
-  ctx.fillStyle = isSelected ? '#ffaa00' : '#4a9fc0';
-  ctx.textAlign = 'center';
-  // Offset label perpendicular to edge
-  const perpX = -Math.sin(angle) * 10 / STATE.view.zoom;
-  const perpY =  Math.cos(angle) * 10 / STATE.view.zoom;
-  ctx.fillText(`${edge.speedLimit}m/s`, midX + perpX, midY + perpY);
-  ctx.restore();
 }
 
 /** Draw directional arrow(s) at a point on an edge */
@@ -2437,6 +2425,7 @@ async function importFromDb(file) {
 
   // ── Load map meta ──────────────────────────────────────────────────────────
   const mapRows = db.exec('SELECT key, value FROM map_meta');
+  let importedImageDataUrl = null;
   if (mapRows.length) {
     mapRows[0].values.forEach(([k, v]) => {
       if (k === 'resolution')   { STATE.map.resolution   = parseFloat(v); document.getElementById('map-resolution').value = v; }
