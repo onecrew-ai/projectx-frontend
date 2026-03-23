@@ -1194,24 +1194,56 @@ function worldToCanvas(wx, wy) {
 }
 
 /** Convert canvas-space (image pixels) → real-world metres
- *  Using ROS2 YAML calibration: world_m = origin_m + pixel * resolution
- *  Note: In ROS2 conventions the image Y-axis is inverted (row 0 = top of
- *  image = highest Y coordinate). We handle this flip here.
+ * Accounts for ROS2 resolution, origin (x,y), and yaw rotation.
  */
 function pixelToMetres(px, py) {
   const { resolution, originX, originY, originYaw, imageHeight } = STATE.map;
-  const mx = originX + px * resolution;
-  // Flip Y: row 0 is the top of the image, which corresponds to the highest
-  // real-world Y value. Bottom of image = originY.
-  const my = originY + (imageHeight - py) * resolution;
-  return { mx, my };
+
+  // 1. Calculate pixel distance from the lower-left corner (ROS origin point)
+  const dxPx = px;
+  const dyPx = imageHeight - py;
+
+  // 2. Convert to unrotated meters
+  const mxUnrotated = dxPx * resolution;
+  const myUnrotated = dyPx * resolution;
+
+  // 3. Apply yaw rotation
+  const cosYaw = Math.cos(originYaw);
+  const sinYaw = Math.sin(originYaw);
+
+  const mxRotated = mxUnrotated * cosYaw - myUnrotated * sinYaw;
+  const myRotated = mxUnrotated * sinYaw + myUnrotated * cosYaw;
+
+  // 4. Translate by origin offset
+  return { 
+    mx: mxRotated + originX, 
+    my: myRotated + originY 
+  };
 }
 
 /** Metres → pixel space (inverse of pixelToMetres) */
 function metresToPixel(mx, my) {
   const { resolution, originX, originY, originYaw, imageHeight } = STATE.map;
-  const px = (mx - originX) / resolution;
-  const py = imageHeight - (my - originY) / resolution;
+
+  // 1. Translate relative to origin
+  const dx = mx - originX;
+  const dy = my - originY;
+
+  // 2. Rotate back by negative yaw to get unrotated meters
+  // Note: cos(-a) = cos(a), sin(-a) = -sin(a)
+  const cosYaw = Math.cos(originYaw);
+  const sinYaw = Math.sin(originYaw);
+
+  const mxUnrotated = dx * cosYaw + dy * sinYaw;
+  const myUnrotated = -dx * sinYaw + dy * cosYaw;
+
+  // 3. Convert to pixels from lower-left
+  const px = mxUnrotated / resolution;
+  const pyFromBottom = myUnrotated / resolution;
+
+  // 4. Map back to canvas coordinates (invert Y back to top-down)
+  const py = imageHeight - pyFromBottom;
+
   return { px, py };
 }
 
