@@ -767,6 +767,7 @@
     <!-- DB export / import -->
     <button class="hbtn"         id="btn-import-db">📂 IMPORT .DB</button>
     <button class="hbtn primary" id="btn-export-db">💾 EXPORT .DB</button>
+    <button class="hbtn primary" id="btn-export-grid">🗺 EXPORT OCCUPANCY GRID</button>
     <button class="hbtn danger"  id="btn-clear">✕ CLEAR</button>
 
     <div class="header-spacer"></div>
@@ -2408,6 +2409,96 @@ async function exportToDb() {
   showToast('Project exported successfully');
 }
 
+/** Generate an Occupancy Grid from Edges and export as PGM + YAML */
+function exportOccupancyGrid() {
+  if (STATE.edges.size === 0) {
+    showToast('No edges to generate grid from.');
+    return;
+  }
+
+  // 1. Establish Grid Dimensions
+  const width  = STATE.map.imageWidth  || 1000;
+  const height = STATE.map.imageHeight || 1000;
+  const res    = STATE.map.resolution  || 0.05;
+
+  // 2. Setup Offscreen Canvas
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = width;
+  offCanvas.height = height;
+  const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
+
+  // 3. Fill with "Occupied" (Black / 0)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, width, height);
+
+  // 4. Draw Lanes as "Free" (White / 255)
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  STATE.edges.forEach(edge => {
+    const a = STATE.waypoints.get(edge.from);
+    const b = STATE.waypoints.get(edge.to);
+    if (!a || !b) return;
+
+    // FIX: Waypoints are already in image pixel coordinates, 
+    // so we can use a.x and a.y directly!
+    const pxA = a.x;
+    const pyA = a.y;
+    const pxB = b.x;
+    const pyB = b.y;
+
+    // Convert lane width (m) to pixels
+    ctx.lineWidth = edge.laneWidth / res;
+    
+    ctx.beginPath();
+    ctx.moveTo(pxA, pyA);
+    ctx.lineTo(pxB, pyB);
+    ctx.stroke();
+  });
+
+  // 5. Extract Pixel Data
+  const imgData = ctx.getImageData(0, 0, width, height).data;
+  const pixelArray = new Uint8Array(width * height);
+  
+  // Canvas data is RGBA. We only need the Red channel since it's grayscale.
+  for (let i = 0; i < width * height; i++) {
+    pixelArray[i] = imgData[i * 4]; 
+  }
+
+  // 6. Build P5 Binary PGM Blob
+  const pgmHeader = `P5\n${width} ${height}\n255\n`;
+  const headerBlob = new Blob([pgmHeader], { type: 'text/plain' });
+  const pixelBlob = new Blob([pixelArray], { type: 'application/octet-stream' });
+  const finalPgmBlob = new Blob([headerBlob, pixelBlob]);
+
+  // 7. Build ROS2 YAML Companion Blob
+  const yamlText = `image: occupancy_grid.pgm
+resolution: ${res}
+origin: [${STATE.map.originX}, ${STATE.map.originY}, ${STATE.map.originYaw}]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+`;
+  const yamlBlob = new Blob([yamlText], { type: 'text/yaml' });
+
+  // 8. Helper to trigger downloads
+  const download = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Trigger both downloads
+  download(finalPgmBlob, 'occupancy_grid.pgm');
+  download(yamlBlob, 'occupancy_grid.yaml');
+  
+  showToast('Occupancy Grid (.pgm + .yaml) exported!');
+}
+
 /** Import a .db file, validate schema, and reconstruct the workspace */
 async function importFromDb(file) {
   if (typeof initSqlJs === 'undefined') {
@@ -2653,6 +2744,7 @@ document.getElementById('zoom-fit').addEventListener('click', fitView);
 
 // ── Header buttons ─────────────────────────────────────────────────────────
 document.getElementById('btn-export-db').addEventListener('click', exportToDb);
+document.getElementById('btn-export-grid').addEventListener('click', exportOccupancyGrid);
 document.getElementById('btn-import-db').addEventListener('click', () => document.getElementById('file-db').click());
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (confirm('Clear entire workspace? This cannot be undone.')) clearAll();
