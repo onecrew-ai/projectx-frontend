@@ -1,0 +1,33 @@
+{
+  "name": "projectx_configurator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShUbHkHaNdElWaL493/projectx-frontend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ShUbHkHaNdElWaL493/projectx-frontend/issues"
+  },
+  "homepage": "https://github.com/ShUbHkHaNdElWaL493/projectx-frontend#readme",
+  "dependencies": {
+    "@fontsource/orbitron": "^5.2.8",
+    "@fontsource/share-tech-mono": "^5.2.7",
+    "@fontsource/syne": "^5.2.7",
+    "express": "^5.2.1",
+    "sql.js": "^1.14.1"
+  }
+}

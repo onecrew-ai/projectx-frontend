@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProjectX</title>
+
+  <!-- =====================================================================
+       FONTS: "Share Tech Mono" for monospace data readouts,
+              "Orbitron" for headers (sci-fi / technical aesthetic)
+       ===================================================================== -->
+  
+  <script>
+    document.write('<base href="' + window.location.pathname + '" />');
+  </script>
+  
+  <link rel="stylesheet" href="./node_modules/@fontsource/orbitron/400.css" />
+  <link rel="stylesheet" href="./node_modules/@fontsource/orbitron/600.css" />
+  <link rel="stylesheet" href="./node_modules/@fontsource/orbitron/800.css" />
+  <link rel="stylesheet" href="./node_modules/@fontsource/share-tech-mono/400.css" />
+  <link rel="stylesheet" href="./node_modules/@fontsource/syne/400.css" />
+  <link rel="stylesheet" href="./node_modules/@fontsource/syne/600.css" />
+  <link rel="stylesheet" href="./src/style.css" />
+  <script src="./node_modules/sql.js/dist/sql-wasm.js"></script>
+
+</head>
+<body>
+
+<!-- =========================================================================
+     APP SHELL
+     ========================================================================= -->
+<div id="app">
+
+  <!-- ======================================================================
+       HEADER
+       ====================================================================== -->
+  <header id="header">
+    <div class="logo">ProjectX<span> // Configurator</span></div>
+    <div class="header-divider"></div>
+    <input id="project-name-display" type="text" value="untitled_project" placeholder="project name" title="Project Name" />
+    <div class="header-divider"></div>
+
+    <!-- DB export / import -->
+    <button class="hbtn"         id="btn-import-db">📂 IMPORT .DB</button>
+    <button class="hbtn primary" id="btn-export-db">💾 EXPORT .DB</button>
+    <button class="hbtn primary" id="btn-export-grid">💾 EXPORT OCCUPANCY GRID</button>
+    <button class="hbtn danger"  id="btn-clear">✕ CLEAR</button>
+
+    <div class="header-spacer"></div>
+
+    <!-- Live coordinate display (updated on mousemove) -->
+    <div class="coord-hud">
+      X: <span id="hud-x">0.00</span>m &nbsp; Y: <span id="hud-y">0.00</span>m
+    </div>
+  </header>
+
+  <!-- ======================================================================
+       LEFT SIDEBAR
+       ====================================================================== -->
+  <aside id="sidebar">
+
+    <!-- PROJECT METADATA -->
+    <div class="section-header">Metadata</div>
+    <div class="meta-form">
+      <div class="form-group">
+        <label class="form-label">Bot Type</label>
+        <select class="form-select" id="meta-bot-type">
+          <option value="R1">R1</option>
+          <option value="R2">R2</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model Type</label>
+        <select class="form-select" id="meta-model-type">
+          <option value="hospitality">hospitality</option>
+          <option value="kiosk">kiosk</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (Optional)</label>
+        <textarea class="form-textarea" id="meta-description" placeholder="Description..."></textarea>
+      </div>
+    </div>
+
+    <!-- TOOL PALETTE -->
+    <div class="section-header">Tools</div>
+    <div id="tool-palette">
+      <button class="tool-btn active" data-tool="select"   title="Select / Drag (1)">
+        <span class="icon">↖</span>SELECT
+      </button>
+      <button class="tool-btn" data-tool="pan"      title="Pan Map (2)">
+        <span class="icon">✥</span>PAN
+      </button>
+      <button class="tool-btn" data-tool="dense"    title="Waypoint Addition (3)">
+        <span class="icon">⋯</span>WAYPOINTS
+      </button>
+      <button class="tool-btn" data-tool="event"    title="Anchor Event (4)">
+        <span class="icon">◎</span>EVENT
+      </button>
+    </div>
+
+    <!-- SNAP / INTERPOLATION SETTINGS -->
+    <div class="section-header">Graph Settings</div>
+    <div id="graph-tools">
+      <!-- Default edge property controls -->
+      <div class="form-group" style="margin-top:6px;">
+        <label class="form-label">Default Direction</label>
+        <select class="form-select" id="default-direction">
+          <option value="bidirectional">↔ Bidirectional</option>
+          <option value="forward_only">→ Forward Only</option>
+          <option value="reverse_only">← Reverse Only</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Speed (m/s)</label>
+        <input type="number" class="form-input" id="default-speed" value="0.5" min="0.1" max="5" step="0.1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Lane Width (m)</label>
+        <input type="number" class="form-input" id="default-lane-width" value="0.8" min="0.1" max="5" step="0.1" />
+      </div>
+    </div>
+
+    <!-- MAP IMPORT DROPZONE -->
+    <div class="section-header">Map Import</div>
+    <div id="map-import-zone" title="Click to import map files">
+      <div class="import-icon">🗺</div>
+      <p>Click to import map files. [<span>.pgm</span> + <span>.yaml</span>]</p>
+      <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
+      <p id="map-import-status" style="margin-top:4px; color: var(--text-dim);">No map loaded</p>
+    </div>
+
+    <!-- MAP CALIBRATION READOUT -->
+    <div class="meta-form" id="map-calibration" style="padding-bottom: 16px;">
+      <div class="form-group">
+        <label class="form-label">Resolution (m/px)</label>
+        <input type="text" class="form-input" id="map-resolution" value="0.05" readonly style="cursor: default; opacity: 0.8;" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Origin X (m)</label>
+        <input type="text" class="form-input" id="map-origin-x" value="0.00" readonly style="cursor: default; opacity: 0.8;" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Origin Y (m)</label>
+        <input type="text" class="form-input" id="map-origin-y" value="0.00" readonly style="cursor: default; opacity: 0.8;" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Origin Yaw (rad)</label>
+        <input type="text" class="form-input" id="map-origin-yaw" value="0.00" readonly style="cursor: default; opacity: 0.8;" />
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ======================================================================
+       CANVAS WRAPPER (Main workspace)
+       ====================================================================== -->
+  <div id="canvas-wrapper">
+    <canvas id="main-canvas"></canvas>
+
+    <!-- Dense-path mode banner -->
+    <div id="dense-mode-indicator">⋯ WAYPOINTS MODE — Click P1 then P2 to generate waypoints</div>
+
+    <!-- Zoom controls -->
+    <div id="zoom-controls">
+      <button class="zoom-btn" id="zoom-in"  title="Zoom In">+</button>
+      <div id="zoom-label">100%</div>
+      <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
+      <button class="zoom-btn" id="zoom-fit" title="Fit to Window">⊡</button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       RIGHT INSPECTOR PANEL
+       ====================================================================== -->
+  <aside id="inspector">
+
+    <!-- Tab bar: Properties | Events | Adjacency -->
+    <div id="inspector-tabs">
+      <div class="itab active" data-tab="props">PROPS</div>
+      <div class="itab"        data-tab="events">EVENTS</div>
+    </div>
+
+    <!-- ── PROPERTIES TAB ── -->
+    <div class="itab-content visible" id="tab-props">
+      <div id="props-nothing" class="empty-state">
+        <div class="empty-icon">↖</div>
+        No element selected.<br />
+        Use <b>SELECT</b> tool<br />and click a waypoint or edge.
+      </div>
+
+      <!-- Waypoint properties (shown when WP is selected) -->
+      <div id="props-waypoint" style="display:none;">
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Waypoint</div>
+          <div class="prop-row">
+            <span class="prop-key">ID</span>
+            <span class="prop-val" id="wp-id-display">—</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">Label</span>
+            <input type="text" class="prop-input" id="wp-label-input" placeholder="optional label" />
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">X (world m)</span>
+            <span class="prop-val" id="wp-x-display">—</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">Y (world m)</span>
+            <span class="prop-val" id="wp-y-display">—</span>
+          </div>
+        </div>
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Neighbors</div>
+          <div id="wp-neighbors-chips"></div>
+        </div>
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Assigned Event</div>
+          <div id="wp-event-display" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-mono); padding: 4px 0;">—</div>
+          <button class="hbtn" id="btn-jump-event" style="width: 100%; margin-top: 8px; display: none;">VIEW EVENT</button>
+        </div>
+      </div>
+
+      <!-- Edge properties (shown when edge is selected) -->
+      <div id="props-edge" style="display:none;">
+        <div class="prop-section">
+          <div class="section-header" style="padding:0 0 6px;">Edge</div>
+          <div class="prop-row">
+            <span class="prop-key">ID</span>
+            <span class="prop-val" id="edge-id-display">—</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-key">From → To</span>
+            <span class="prop-val" id="edge-endpoints">—</span>
+          </div>
+          <div class="form-group" style="margin-top:8px;">
+            <label class="form-label">Direction</label>
+            <select class="prop-select" id="edge-direction-input">
+              <option value="bidirectional">↔ Bidirectional</option>
+              <option value="forward_only">→ Forward Only</option>
+              <option value="reverse_only">← Reverse Only</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:6px;">
+            <label class="form-label">Speed Limit (m/s)</label>
+            <input type="number" class="prop-input" id="edge-speed-input" min="0.1" max="10" step="0.1" />
+          </div>
+          <div class="form-group" style="margin-top:6px;">
+            <label class="form-label">Lane Width (m)</label>
+            <input type="number" class="prop-input" id="edge-lanewidth-input" min="0.1" max="10" step="0.1" />
+          </div>
+          <button class="graph-btn" id="btn-apply-edge" style="margin-top:8px;">✓ Apply Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EVENTS TAB ── -->
+    <div class="itab-content" id="tab-events">
+      <div class="section-header" style="justify-content: space-between;">
+        Spatial Events
+        <span style="font-family: var(--font-mono); font-size:12px; color:var(--accent-amber);">
+          Use EVENT tool to anchor
+        </span>
+      </div>
+      <div id="events-list">
+        <!-- Dynamically generated event cards appear here -->
+        <div class="empty-state">
+          <div class="empty-icon">◎</div>
+          No events yet.<br />
+          Select <b>EVENT</b> tool<br />and click a waypoint.
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ======================================================================
+       STATUS BAR
+       ====================================================================== -->
+  <div id="status-bar">
+    <div class="status-item">WP: <span id="stat-wp">0</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item">EDGES: <span id="stat-edges">0</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item">EVENTS: <span id="stat-events">0</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item">ZOOM: <span id="stat-zoom">100</span>%</div>
+    <div class="status-item" id="status-mode">◈ SELECT</div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- =========================================================================
+     TOAST NOTIFICATION
+     ========================================================================= -->
+<div id="toast"></div>
+
+<!-- =========================================================================
+     HIDDEN FILE INPUTS (triggered programmatically)
+     ========================================================================= -->
+<input type="file" id="file-db"   accept=".db"        style="display:none" />
+
+<!-- =========================================================================
+     MAIN APPLICATION SCRIPT
+     ========================================================================= -->
+<script src="./src/app.js" defer></script>
+
+</body>
+</html>
