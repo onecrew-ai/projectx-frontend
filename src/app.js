@@ -1328,7 +1328,7 @@ async function exportToDb() {
   }
 
   const SQL = await initSqlJs({
-    locateFile: file => `./node_modules/sql.js/dist/${file}`
+    locateFile: file => `node_modules/sql.js/dist/${file}`
   });
 
   const db = new SQL.Database();
@@ -1508,7 +1508,7 @@ async function importFromDb(file) {
   }
 
   const SQL = await initSqlJs({
-    locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+    locateFile: f => `node_modules/sql.js/dist/${f}`
   });
 
   const buffer = await file.arrayBuffer();
