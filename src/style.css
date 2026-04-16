@@ -689,3 +689,25 @@ input[type=range] {
   pointer-events: none;
   display: none;
 }
+
+/* Mobile Optimization */
+@media (max-width: 768px) {
+  /* Assuming your main layout uses display: flex */
+  body, .app-container {
+    flex-direction: column !important;
+  }
+  
+  /* Make sidebar take up bottom half instead of side */
+  .sidebar {
+    width: 100% !important;
+    height: 40vh;
+    border-right: none;
+    border-top: 1px solid var(--border-dim);
+  }
+
+  /* Give map the top half */
+  #canvas-wrapper {
+    height: 60vh;
+    width: 100%;
+  }
+}

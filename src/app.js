@@ -127,11 +127,51 @@ const canvas  = document.getElementById('main-canvas');
 const ctx     = canvas.getContext('2d');
 const wrapper = document.getElementById('canvas-wrapper');
 
-/** Resize canvas to fill its wrapper container */
+/** Resize canvas to fill its wrapper container and maintain relative zoom/pan */
 function resizeCanvas() {
-  canvas.width  = wrapper.clientWidth;
-  canvas.height = wrapper.clientHeight;
+  // 1. Capture the old dimensions before we change anything
+  const oldW = canvas.width || wrapper.clientWidth;
+  const oldH = canvas.height || wrapper.clientHeight;
+  
+  // 2. Get the new dimensions
+  const newW = wrapper.clientWidth;
+  const newH = wrapper.clientHeight;
+  
+  // 3. Only apply relative scaling if the app is fully loaded and has a map
+  if (oldW > 0 && oldH > 0 && (STATE.map.image || STATE.waypoints.size > 0)) {
+    // Find the world coordinate currently in the center of the screen
+    const centerWx = (oldW / 2 - STATE.view.panX) / STATE.view.zoom;
+    const centerWy = (oldH / 2 - STATE.view.panY) / STATE.view.zoom;
+    
+    // Calculate the scale ratio (using the smallest dimension to keep it proportional)
+    const ratio = Math.min(newW / oldW, newH / oldH);
+    
+    // Apply ratio to zoom, clamping it between your existing min/max zoom levels
+    STATE.view.zoom = Math.min(8, Math.max(0.05, STATE.view.zoom * ratio));
+    
+    // Recalculate pan to keep that center world coordinate directly in the middle
+    STATE.view.panX = newW / 2 - (centerWx * STATE.view.zoom);
+    STATE.view.panY = newH / 2 - (centerWy * STATE.view.zoom);
+    
+    // Update the UI readout
+    if (typeof updateZoomLabel === 'function') updateZoomLabel();
+  }
+
+  // 4. Apply the new physical dimensions to the canvas
+  canvas.width  = newW;
+  canvas.height = newH;
+  
   scheduleRender();
+}
+
+/** Unify mouse and touch coordinate extraction */
+function getPointerCoords(e) {
+  if (e.touches && e.touches.length > 0) {
+    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+  }
+  return { clientX: e.clientX, clientY: e.clientY };
 }
 
 /** Convert mouse event coordinates to canvas logical coordinates
@@ -139,9 +179,10 @@ function resizeCanvas() {
  */
 function mouseToCanvas(e) {
   const rect = canvas.getBoundingClientRect();
+  const pointer = getPointerCoords(e);
   return {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top,
+    x: pointer.clientX - rect.left,
+    y: pointer.clientY - rect.top,
   };
 }
 
@@ -779,82 +820,96 @@ function setTool(toolName) {
     toolName === 'dense' ? 'block' : 'none';
 }
 
-// ── Canvas mouse event handlers ───────────────────────────────────────────────
+// ── Unified Pointer & Touch Handlers ──────────────────────────────────────────
 
-canvas.addEventListener('mousedown', e => {
+let initialPinchDist = null;
+
+function handlePointerDown(e) {
+  // Prevent browser scrolling while interacting with canvas
+  if (e.type === 'touchstart') e.preventDefault(); 
+
+  // Handle Pinch-to-Zoom setup
+  if (e.touches && e.touches.length === 2) {
+    initialPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    return;
+  }
+
   const { x, y } = mouseToCanvas(e);
   const { wx, wy } = canvasToWorld(x, y);
+  STATE.hover.wx = wx; STATE.hover.wy = wy;
 
-  STATE.hover.wx = wx;
-  STATE.hover.wy = wy;
-
-  // Middle-button or Space+drag → pan regardless of tool
-  if (e.button === 1) {
-    startPan(x, y);
-    e.preventDefault();
-    return;
-  }
-
-  if (STATE.currentTool === 'pan') {
+  // Middle-click or 2-finger touch for panning
+  if (e.button === 1 || (e.touches && e.touches.length === 2)) {
     startPan(x, y);
     return;
   }
 
-  if (STATE.currentTool === 'select') {
-    handleSelectMouseDown(x, y, wx, wy);
-  } else if (STATE.currentTool === 'event') {
-    handleEventToggle(x, y);
-  } else if (STATE.currentTool === 'dense') {
+  if (STATE.currentTool === 'pan') { startPan(x, y); return; }
+  if (STATE.currentTool === 'select') { handleSelectMouseDown(x, y, wx, wy); }
+  else if (STATE.currentTool === 'event') { handleEventToggle(x, y); }
+  else if (STATE.currentTool === 'dense') {
     handleDenseClick(wx, wy);
-    if (STATE.densePath.p1) {
-      scheduleRender();
-    }
+    if (STATE.densePath.p1) scheduleRender();
   }
-});
+}
 
-canvas.addEventListener('mouseleave', () => {
-  STATE.hover.wx = null;
-  STATE.hover.wy = null;
-  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
-});
+function handlePointerMove(e) {
+  if (e.type === 'touchmove') e.preventDefault();
 
-canvas.addEventListener('mousemove', e => {
+  // Execute Pinch-to-Zoom
+  if (e.touches && e.touches.length === 2 && initialPinchDist) {
+    const newDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const zoomFactor = newDist > initialPinchDist ? 1.05 : 0.95;
+    const { x, y } = mouseToCanvas({ clientX: (e.touches[0].clientX + e.touches[1].clientX)/2, clientY: (e.touches[0].clientY + e.touches[1].clientY)/2 });
+    applyZoom(zoomFactor, x, y);
+    initialPinchDist = newDist; // reset for next frame
+    return;
+  }
+
   const { x, y } = mouseToCanvas(e);
   const { wx, wy } = canvasToWorld(x, y);
+  STATE.hover.wx = wx; STATE.hover.wy = wy;
 
-  STATE.hover.wx = wx;
-  STATE.hover.wy = wy;
-
-  // Update HUD coordinates (convert pixel coords to real-world metres)
   const { mx, my } = pixelToMetres(wx, wy);
   document.getElementById('hud-x').textContent = mx.toFixed(2);
   document.getElementById('hud-y').textContent = my.toFixed(2);
 
-  if (STATE.panDrag.active) {
-    doPan(x, y);
-    return;
-  }
+  if (STATE.panDrag.active) { doPan(x, y); return; }
+  if (STATE.drag.active && STATE.currentTool === 'select') { doDragWaypoint(wx, wy); return; }
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
+}
 
-  if (STATE.drag.active && STATE.currentTool === 'select') {
-    doDragWaypoint(wx, wy);
-    return;
-  }
-
-  if (STATE.currentTool === 'dense' && STATE.densePath.p1) {
-    scheduleRender();
-  }
-});
-
-canvas.addEventListener('mouseup', e => {
+function handlePointerUp(e) {
+  if (e.touches && e.touches.length < 2) initialPinchDist = null;
   if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
-  if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); }
-});
+  if (STATE.drag.active) { STATE.drag.active = false; updateInspector(); }
+}
 
+// Bind Mouse Events
+canvas.addEventListener('mousedown', handlePointerDown);
+canvas.addEventListener('mousemove', handlePointerMove);
+canvas.addEventListener('mouseup', handlePointerUp);
+canvas.addEventListener('mouseleave', () => {
+  STATE.hover.wx = null; STATE.hover.wy = null;
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
+});
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const { x, y } = mouseToCanvas(e);
   applyZoom(e.deltaY < 0 ? 1.15 : 0.87, x, y);
 }, { passive: false });
+
+// Bind Touch Events
+canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+canvas.addEventListener('touchend', handlePointerUp);
+canvas.addEventListener('touchcancel', handlePointerUp);
 
 // Prevent context menu on right-click
 canvas.addEventListener('contextmenu', e => { e.preventDefault(); cancelCurrentAction(); });
