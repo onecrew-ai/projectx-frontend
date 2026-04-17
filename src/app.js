@@ -1988,47 +1988,36 @@ wrapper.addEventListener('drop', async e => {
   }
 });
 
-// ── Application Menus (Dropdown logic) ─────────────────────────────────────
-document.querySelectorAll('.menu-drop-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const parent = btn.parentElement;
+// ── Ribbon Toolbar Logic ───────────────────────────────────────────────────
+const ribbonContainer = document.getElementById('ribbon-container');
+const ribbonTabs = document.querySelectorAll('.ribbon-tab[data-target]');
+const ribbonPanels = document.querySelectorAll('.ribbon-panel');
+
+ribbonTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const targetId = tab.getAttribute('data-target');
+    const targetPanel = document.getElementById(targetId);
     
-    // Close other dropdowns
-    document.querySelectorAll('.menu-item').forEach(item => {
-      if (item !== parent) {
-        item.classList.remove('active');
-        const drop = item.querySelector('.menu-dropdown');
-        if (drop) drop.classList.remove('show');
-      }
-    });
-
-    // Toggle clicked dropdown (unless it's a standalone button like Events)
-    const dropdown = parent.querySelector('.menu-dropdown');
-    if (dropdown) {
-      const isShowing = dropdown.classList.contains('show');
-      dropdown.classList.toggle('show', !isShowing);
-      parent.classList.toggle('active', !isShowing);
+    // If the clicked tab is already active, close the ribbon
+    if (tab.classList.contains('active')) {
+      tab.classList.remove('active');
+      ribbonContainer.classList.remove('show');
+      targetPanel.classList.remove('active');
+    } else {
+      // Deactivate all tabs and panels
+      ribbonTabs.forEach(t => t.classList.remove('active'));
+      ribbonPanels.forEach(p => p.classList.remove('active'));
+      
+      // Activate the clicked one
+      tab.classList.add('active');
+      targetPanel.classList.add('active');
+      ribbonContainer.classList.add('show');
     }
+    
+    // CRITICAL: The ribbon pushes the canvas down when it opens. 
+    // We must resize the canvas to prevent the image from stretching/squishing.
+    requestAnimationFrame(resizeCanvas);
   });
-});
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.menu-item')) {
-    document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.remove('show'));
-    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-  }
-});
-
-// Prevent closing when typing inside form dropdowns
-document.querySelectorAll('.form-dropdown').forEach(form => {
-  form.addEventListener('click', e => e.stopPropagation());
-});
-
-// Link 'Events' menu button to switch to the Events tab in the right inspector
-document.getElementById('btn-menu-events').addEventListener('click', () => {
-  document.querySelector('.itab[data-tab="events"]').click();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2036,47 +2025,21 @@ document.getElementById('btn-menu-events').addEventListener('click', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const splashScreen = document.getElementById('splash-screen');
-const menuScreen = document.getElementById('menu-screen');
 const appScreen = document.getElementById('app');
 
-// 1. Splash to Menu Transition
-// Wait 2 seconds, fade out splash, then show menu
+// Splash to App Transition
+// Wait 2 seconds, fade out splash, then show the main app grid
 setTimeout(() => {
   splashScreen.style.opacity = '0';
   
   setTimeout(() => {
     splashScreen.style.display = 'none';
-    menuScreen.style.display = 'flex';
-  }, 500); // Wait for the CSS opacity transition to finish
+    appScreen.style.display = 'grid'; // Reveal the main workspace
+    
+    // CRITICAL: Resize canvas now that it's visible to prevent a 0x0 canvas
+    resizeCanvas(); 
+  }, 500); // Waits for the 0.5s CSS opacity transition to finish
 }, 2000);
-
-// 2. Menu to App Transitions
-function launchApp() {
-  menuScreen.style.display = 'none';
-  appScreen.style.display = 'grid'; // Use grid because #app requires it
-  
-  // CRITICAL: We must resize the canvas now that it's visible, 
-  // otherwise it will render with 0 width/height
-  resizeCanvas(); 
-}
-
-// "Start New Project" button
-document.getElementById('btn-menu-new').addEventListener('click', () => {
-  launchApp();
-  showToast('New project initialized');
-});
-
-// "Load Project" button
-document.getElementById('btn-menu-load').addEventListener('click', () => {
-  // Trigger the existing hidden file input
-  document.getElementById('file-db').click();
-  launchApp();
-});
-
-// "Settings" button placeholder
-document.getElementById('btn-menu-settings').addEventListener('click', () => {
-  showToast('Settings menu configuration coming soon.');
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BOOTSTRAP — Initialize canvas and first render
