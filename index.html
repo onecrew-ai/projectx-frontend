@@ -26,131 +26,125 @@
 </head>
 <body>
 
+<div id="splash-screen">
+  <div class="logo giant-logo">ProjectX<span> // Configurator</span></div>
+</div>
+
+<div id="menu-screen" style="display: none;">
+  <div class="menu-container">
+    <div class="logo menu-logo">ProjectX</div>
+    <div class="menu-options">
+      <button class="hbtn primary menu-btn" id="btn-menu-new">Start New Project</button>
+      <button class="hbtn menu-btn" id="btn-menu-load">Load Project (.db)</button>
+      <button class="hbtn menu-btn" id="btn-menu-settings">Settings</button>
+    </div>
+  </div>
+</div>
+
 <!-- =========================================================================
      APP SHELL
      ========================================================================= -->
-<div id="app">
+<div id="app" style="display: none;">
 
   <!-- ======================================================================
        HEADER
        ====================================================================== -->
   <header id="header">
-    <div class="logo">ProjectX<span> // Configurator</span></div>
-    <div class="header-divider"></div>
-    <input id="project-name-display" type="text" value="untitled_project" placeholder="project name" title="Project Name" />
+    <div class="logo">ProjectX</div>
     <div class="header-divider"></div>
 
-    <!-- DB export / import -->
-    <button class="hbtn"         id="btn-import-db">📂 IMPORT .DB</button>
-    <button class="hbtn primary" id="btn-export-db">💾 EXPORT .DB</button>
-    <button class="hbtn primary" id="btn-export-grid">💾 EXPORT OCCUPANCY GRID</button>
-    <button class="hbtn danger"  id="btn-clear">✕ CLEAR</button>
+    <nav class="top-menu-bar">
+      
+      <div class="menu-item">
+        <button class="menu-drop-btn">File</button>
+        <div class="menu-dropdown">
+          <button class="menu-action" id="btn-import-db">📂 Import Database (.db)</button>
+          <button class="menu-action" id="btn-export-db">💾 Export Database (.db)</button>
+          <button class="menu-action" id="btn-export-grid">💾 Export Occupancy Grid (.pgm+.yaml)</button>
+          <div class="menu-divider"></div>
+          <button class="menu-action danger" id="btn-clear">✕ Clear Database</button>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button class="menu-drop-btn">Project</button>
+        <div class="menu-dropdown form-dropdown">
+          <div class="form-group">
+            <label class="form-label">Project Name</label>
+            <input id="project-name-display" type="text" value="untitled_project" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bot Type</label>
+            <select class="form-select" id="meta-bot-type">
+              <option value="R1">R1</option>
+              <option value="R2">R2</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model Type</label>
+            <select class="form-select" id="meta-model-type">
+              <option value="hospitality">hospitality</option>
+              <option value="kiosk">kiosk</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description (Optional)</label>
+            <textarea class="form-textarea" id="meta-description" placeholder="Description..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button class="menu-drop-btn">Graph</button>
+        <div class="menu-dropdown form-dropdown" style="min-width: 300px;">
+          <div id="map-import-zone" title="Click to import map files">
+            <div class="import-icon">🗺</div>
+            <p>Click to import map files. [<span>.pgm</span> + <span>.yaml</span>]</p>
+            <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
+            <p id="map-import-status" style="margin-top:4px; font-size:11px; color: var(--text-dim);">No map loaded</p>
+          </div>
+          
+          <div class="menu-divider"></div>
+          
+          <div class="form-group">
+            <label class="form-label">Resolution (m/px)</label>
+            <input type="text" class="form-input" id="map-resolution" value="0.05" readonly style="opacity: 0.7;" />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group"><label class="form-label">Origin X (m)</label><input type="text" class="form-input" id="map-origin-x" value="0.00" readonly style="opacity: 0.7;" /></div>
+            <div class="form-group"><label class="form-label">Origin Y (m)</label><input type="text" class="form-input" id="map-origin-y" value="0.00" readonly style="opacity: 0.7;" /></div>
+          </div>
+          <div class="form-group"><label class="form-label">Origin Yaw (rad)</label><input type="text" class="form-input" id="map-origin-yaw" value="0.00" readonly style="opacity: 0.7;" /></div>
+
+          <div class="menu-divider"></div>
+
+          <div class="form-group">
+            <label class="form-label">Default Direction</label>
+            <select class="form-select" id="default-direction">
+              <option value="bidirectional">↔ Bidirectional</option>
+              <option value="forward_only">→ Forward Only</option>
+              <option value="reverse_only">← Reverse Only</option>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group"><label class="form-label">Speed (m/s)</label><input type="number" class="form-input" id="default-speed" value="0.5" step="0.1" /></div>
+            <div class="form-group"><label class="form-label">Lane (m)</label><input type="number" class="form-input" id="default-lane-width" value="0.8" step="0.1" /></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button class="menu-drop-btn" id="btn-menu-events">Events</button>
+      </div>
+
+    </nav>
 
     <div class="header-spacer"></div>
 
-    <!-- Live coordinate display (updated on mousemove) -->
     <div class="coord-hud">
       X: <span id="hud-x">0.00</span>m &nbsp; Y: <span id="hud-y">0.00</span>m
     </div>
   </header>
-
-  <!-- ======================================================================
-       LEFT SIDEBAR
-       ====================================================================== -->
-  <aside id="sidebar">
-
-    <!-- PROJECT METADATA -->
-    <div class="section-header">Metadata</div>
-    <div class="meta-form">
-      <div class="form-group">
-        <label class="form-label">Bot Type</label>
-        <select class="form-select" id="meta-bot-type">
-          <option value="R1">R1</option>
-          <option value="R2">R2</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Model Type</label>
-        <select class="form-select" id="meta-model-type">
-          <option value="hospitality">hospitality</option>
-          <option value="kiosk">kiosk</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description (Optional)</label>
-        <textarea class="form-textarea" id="meta-description" placeholder="Description..."></textarea>
-      </div>
-    </div>
-
-    <!-- TOOL PALETTE -->
-    <div class="section-header">Tools</div>
-    <div id="tool-palette">
-      <button class="tool-btn active" data-tool="select"   title="Select / Drag (1)">
-        <span class="icon">↖</span>SELECT
-      </button>
-      <button class="tool-btn" data-tool="pan"      title="Pan Map (2)">
-        <span class="icon">✥</span>PAN
-      </button>
-      <button class="tool-btn" data-tool="dense"    title="Waypoint Addition (3)">
-        <span class="icon">⋯</span>WAYPOINTS
-      </button>
-      <button class="tool-btn" data-tool="event"    title="Anchor Event (4)">
-        <span class="icon">◎</span>EVENT
-      </button>
-    </div>
-
-    <!-- SNAP / INTERPOLATION SETTINGS -->
-    <div class="section-header">Graph Settings</div>
-    <div id="graph-tools">
-      <!-- Default edge property controls -->
-      <div class="form-group" style="margin-top:6px;">
-        <label class="form-label">Default Direction</label>
-        <select class="form-select" id="default-direction">
-          <option value="bidirectional">↔ Bidirectional</option>
-          <option value="forward_only">→ Forward Only</option>
-          <option value="reverse_only">← Reverse Only</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Default Speed (m/s)</label>
-        <input type="number" class="form-input" id="default-speed" value="0.5" min="0.1" max="5" step="0.1" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Default Lane Width (m)</label>
-        <input type="number" class="form-input" id="default-lane-width" value="0.8" min="0.1" max="5" step="0.1" />
-      </div>
-    </div>
-
-    <!-- MAP IMPORT DROPZONE -->
-    <div class="section-header">Map Import</div>
-    <div id="map-import-zone" title="Click to import map files">
-      <div class="import-icon">🗺</div>
-      <p>Click to import map files. [<span>.pgm</span> + <span>.yaml</span>]</p>
-      <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
-      <p id="map-import-status" style="margin-top:4px; color: var(--text-dim);">No map loaded</p>
-    </div>
-
-    <!-- MAP CALIBRATION READOUT -->
-    <div class="meta-form" id="map-calibration" style="padding-bottom: 16px;">
-      <div class="form-group">
-        <label class="form-label">Resolution (m/px)</label>
-        <input type="text" class="form-input" id="map-resolution" value="0.05" readonly style="cursor: default; opacity: 0.8;" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Origin X (m)</label>
-        <input type="text" class="form-input" id="map-origin-x" value="0.00" readonly style="cursor: default; opacity: 0.8;" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Origin Y (m)</label>
-        <input type="text" class="form-input" id="map-origin-y" value="0.00" readonly style="cursor: default; opacity: 0.8;" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Origin Yaw (rad)</label>
-        <input type="text" class="form-input" id="map-origin-yaw" value="0.00" readonly style="cursor: default; opacity: 0.8;" />
-      </div>
-    </div>
-
-  </aside>
 
   <!-- ======================================================================
        CANVAS WRAPPER (Main workspace)
@@ -158,12 +152,25 @@
   <div id="canvas-wrapper">
     <canvas id="main-canvas"></canvas>
 
-    <!-- Dense-path mode banner -->
     <div id="dense-mode-indicator">⋯ WAYPOINTS MODE — Click P1 then P2 to generate waypoints</div>
 
-    <!-- Zoom controls -->
+    <div id="floating-tools">
+      <button class="tool-btn active" data-tool="select" title="Select / Drag (1)">
+        <span class="icon">↖</span>SELECT
+      </button>
+      <button class="tool-btn" data-tool="pan" title="Pan Map (2)">
+        <span class="icon">✥</span>PAN
+      </button>
+      <button class="tool-btn" data-tool="dense" title="Waypoint Addition (3)">
+        <span class="icon">⋯</span>WAYPOINTS
+      </button>
+      <button class="tool-btn" data-tool="event" title="Anchor Event (4)">
+        <span class="icon">◎</span>EVENT
+      </button>
+    </div>
+
     <div id="zoom-controls">
-      <button class="zoom-btn" id="zoom-in"  title="Zoom In">+</button>
+      <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
       <div id="zoom-label">100%</div>
       <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
       <button class="zoom-btn" id="zoom-fit" title="Fit to Window">⊡</button>

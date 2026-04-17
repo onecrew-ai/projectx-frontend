@@ -13,6 +13,7 @@
      9. File I/O — YAML, PGM, SQLite
     10. Keyboard Shortcuts
     11. UI Initialization & Event Listeners
+    12. Screen Navigation Logic
    ============================================================================ */
 
 let isRenderScheduled = false;
@@ -79,7 +80,6 @@ const STATE = {
 
   // ── Interaction ───────────────────────────────────────────────────────────
   currentTool: 'select',   // 'select'|'waypoint'|'edge'|'event'|'dense'|'pan'
-  edgeStartWpId: null,     // first click of edge tool
   densePath: { p1: null }, // first point for dense-path mode
 
   // ── Viewport Transform ────────────────────────────────────────────────────
@@ -748,9 +748,7 @@ function createDensePath(wx1, wy1, wx2, wy2) {
 /** Set the active tool and update UI state */
 function setTool(toolName) {
   STATE.currentTool  = toolName;
-  STATE.edgeStartWpId = null;
   STATE.densePath.p1  = null;
-  STATE._edgeMousePos = null;
 
   // Update tool button active states
   document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -964,8 +962,6 @@ function handleDenseClick(wx, wy) {
 
 /** Cancel whatever in-progress action the user started */
 function cancelCurrentAction() {
-  STATE.edgeStartWpId = null;
-  STATE._edgeMousePos = null;
   STATE.densePath.p1  = null;
   scheduleRender();
 }
@@ -1676,7 +1672,6 @@ function clearAll(confirm = true) {
   STATE.map.image  = null;
   STATE.map.imageWidth  = 0;
   STATE.map.imageHeight = 0;
-  STATE.edgeStartWpId  = null;
   STATE.densePath.p1   = null;
   document.getElementById('map-import-status').textContent = 'No map loaded';
   renderEventsPanel();
@@ -1991,6 +1986,96 @@ wrapper.addEventListener('drop', async e => {
       await importFromDb(file);
     }
   }
+});
+
+// ── Application Menus (Dropdown logic) ─────────────────────────────────────
+document.querySelectorAll('.menu-drop-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const parent = btn.parentElement;
+    
+    // Close other dropdowns
+    document.querySelectorAll('.menu-item').forEach(item => {
+      if (item !== parent) {
+        item.classList.remove('active');
+        const drop = item.querySelector('.menu-dropdown');
+        if (drop) drop.classList.remove('show');
+      }
+    });
+
+    // Toggle clicked dropdown (unless it's a standalone button like Events)
+    const dropdown = parent.querySelector('.menu-dropdown');
+    if (dropdown) {
+      const isShowing = dropdown.classList.contains('show');
+      dropdown.classList.toggle('show', !isShowing);
+      parent.classList.toggle('active', !isShowing);
+    }
+  });
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menu-item')) {
+    document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.remove('show'));
+    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+  }
+});
+
+// Prevent closing when typing inside form dropdowns
+document.querySelectorAll('.form-dropdown').forEach(form => {
+  form.addEventListener('click', e => e.stopPropagation());
+});
+
+// Link 'Events' menu button to switch to the Events tab in the right inspector
+document.getElementById('btn-menu-events').addEventListener('click', () => {
+  document.querySelector('.itab[data-tab="events"]').click();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §12 SCREEN NAVIGATION LOGIC
+// ─────────────────────────────────────────────────────────────────────────────
+
+const splashScreen = document.getElementById('splash-screen');
+const menuScreen = document.getElementById('menu-screen');
+const appScreen = document.getElementById('app');
+
+// 1. Splash to Menu Transition
+// Wait 2 seconds, fade out splash, then show menu
+setTimeout(() => {
+  splashScreen.style.opacity = '0';
+  
+  setTimeout(() => {
+    splashScreen.style.display = 'none';
+    menuScreen.style.display = 'flex';
+  }, 500); // Wait for the CSS opacity transition to finish
+}, 2000);
+
+// 2. Menu to App Transitions
+function launchApp() {
+  menuScreen.style.display = 'none';
+  appScreen.style.display = 'grid'; // Use grid because #app requires it
+  
+  // CRITICAL: We must resize the canvas now that it's visible, 
+  // otherwise it will render with 0 width/height
+  resizeCanvas(); 
+}
+
+// "Start New Project" button
+document.getElementById('btn-menu-new').addEventListener('click', () => {
+  launchApp();
+  showToast('New project initialized');
+});
+
+// "Load Project" button
+document.getElementById('btn-menu-load').addEventListener('click', () => {
+  // Trigger the existing hidden file input
+  document.getElementById('file-db').click();
+  launchApp();
+});
+
+// "Settings" button placeholder
+document.getElementById('btn-menu-settings').addEventListener('click', () => {
+  showToast('Settings menu configuration coming soon.');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

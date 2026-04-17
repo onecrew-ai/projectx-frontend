@@ -44,12 +44,12 @@ html, body {
    =================================================================== */
 #app {
   display: grid;
-  grid-template-rows: 64px 1fr 40px; 
-  grid-template-columns: 280px 1fr 340px;
+  grid-template-rows: 56px 1fr 40px; /* Slimmer header */
+  grid-template-columns: 1fr 340px; /* Only canvas + inspector */
   grid-template-areas:
-    "header  header   header"
-    "sidebar canvas   inspector"
-    "status  status   status";
+    "header  header"
+    "canvas  inspector"
+    "status  status";
   width: 100vw;
   height: 100vh;
 }
@@ -122,17 +122,120 @@ html, body {
 }
 .coord-hud span { color: var(--text-mono); }
 /* ===================================================================
+   TOP MENU BAR
+   =================================================================== */
+.top-menu-bar {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  margin-left: 16px;
+}
+.menu-item {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.menu-drop-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 0 16px;
+  height: 100%;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.menu-drop-btn:hover, .menu-item.active .menu-drop-btn {
+  background: rgba(0, 212, 255, 0.08);
+  color: var(--accent-cyan);
+}
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-glow);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  min-width: 240px;
+  display: none;
+  flex-direction: column;
+  box-shadow: var(--shadow-panel);
+  z-index: 2000;
+  padding: 8px 0;
+}
+.menu-dropdown.show {
+  display: flex;
+}
+.menu-action {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  text-align: left;
+  padding: 10px 20px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.menu-action:hover {
+  background: rgba(0, 212, 255, 0.15);
+  color: var(--accent-cyan);
+  padding-left: 24px;
+}
+.menu-action.danger { color: var(--accent-red); }
+.menu-action.danger:hover { background: rgba(255, 51, 85, 0.1); color: var(--accent-red); }
+.menu-divider {
+  height: 1px;
+  background: var(--border-dim);
+  margin: 6px 0;
+}
+.form-dropdown {
+  padding: 16px 20px;
+  min-width: 280px;
+  gap: 12px;
+}
+/* ===================================================================
+   FLOATING TOOLS
+   =================================================================== */
+#floating-tools {
+  position: absolute;
+  top: 50%;                 /* Move to the vertical center */
+  left: 24px;               /* Pin to the left side */
+  transform: translateY(-50%); /* Perfectly center it vertically */
+  display: flex;
+  flex-direction: column;   /* Stack the buttons vertically */
+  gap: 8px;
+  background: rgba(12, 18, 32, 0.85); 
+  backdrop-filter: blur(8px);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+}
+#floating-tools .tool-btn {
+  width: 80px;
+  height: 60px;
+  border: 1px solid transparent;
+}
+#floating-tools .tool-btn:hover {
+  border-color: var(--accent-blue);
+  background: rgba(0, 119, 204, 0.2);
+}
+#floating-tools .tool-btn.active {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+}
+/* ===================================================================
    LEFT SIDEBAR — Tools + Project Metadata
    =================================================================== */
-#sidebar {
-  grid-area: sidebar;
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border-dim);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-/* Section headers inside panels */
 .section-header {
   font-family: var(--font-display);
   font-size: 12px;
@@ -154,12 +257,6 @@ html, body {
 /* -----------------------------------------------------------------------
    TOOL PALETTE
    ----------------------------------------------------------------------- */
-#tool-palette {
-  padding: 10px 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-}
 .tool-btn {
   display: flex;
   flex-direction: column;
@@ -179,7 +276,6 @@ html, body {
   text-align: center;
   user-select: none;
 }
-.tool-btn .icon { font-size: 13px; line-height: 1; }
 .tool-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
 .tool-btn.active {
   border-color: var(--accent-cyan);
@@ -190,12 +286,6 @@ html, body {
 /* -----------------------------------------------------------------------
    PROJECT METADATA FORM
    ----------------------------------------------------------------------- */
-.meta-form {
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 .form-group {
   display: flex;
   flex-direction: column;
@@ -246,12 +336,6 @@ html, body {
 }
 #map-import-zone p span { color: var(--accent-cyan); }
 /* Graph tools sub-section */
-#graph-tools {
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 .graph-btn {
   font-family: var(--font-mono);
   font-size: 13px;
@@ -265,28 +349,6 @@ html, body {
   transition: all 0.15s;
 }
 .graph-btn:hover { border-color: var(--accent-blue); color: var(--accent-cyan); }
-/* Snap threshold slider */
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.slider-row label {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-input[type=range] {
-  flex: 1;
-  accent-color: var(--accent-cyan);
-}
-.slider-val {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-mono);
-  min-width: 30px;
-}
 /* ===================================================================
    CANVAS AREA
    =================================================================== */
@@ -688,4 +750,57 @@ input[type=range] {
   color: var(--accent-amber);
   pointer-events: none;
   display: none;
+}
+/* ===================================================================
+   SPLASH & MENU SCREENS
+   =================================================================== */
+#splash-screen, #menu-screen {
+  position: fixed;
+  top: 0; 
+  left: 0; 
+  width: 100vw; 
+  height: 100vh;
+  background: var(--bg-void);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transition: opacity 0.5s ease;
+}
+
+.giant-logo {
+  font-size: 48px;
+  animation: pulseGlow 2s infinite alternate;
+}
+
+.menu-container {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  padding: 40px 60px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+}
+
+.menu-logo {
+  font-size: 32px;
+  margin-bottom: 32px;
+}
+
+.menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.menu-btn {
+  padding: 14px 24px;
+  font-size: 15px;
+  width: 280px;
+}
+
+@keyframes pulseGlow {
+  0% { text-shadow: 0 0 10px rgba(0, 212, 255, 0.2); }
+  100% { text-shadow: 0 0 20px rgba(0, 212, 255, 0.8); }
 }
