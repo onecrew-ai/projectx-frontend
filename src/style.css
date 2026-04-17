@@ -44,15 +44,18 @@ html, body {
    =================================================================== */
 #app {
   display: grid;
-  grid-template-rows: 56px auto 1fr 40px; /* Added 'auto' for the ribbon row */
-  grid-template-columns: 1fr 340px; 
+  grid-template-rows: 56px auto 1fr 40px;
+  grid-template-columns: 1fr 0px; /* Hide sidebar column by default */
   grid-template-areas:
     "header  header"
-    "ribbon  ribbon"   /* New ribbon area */
+    "ribbon  ribbon"
     "canvas  inspector"
     "status  status";
   width: 100vw;
   height: 100vh;
+}
+#app.show-sidebar {
+  grid-template-columns: 1fr 340px; 
 }
 /* ===================================================================
    HEADER BAR
@@ -417,13 +420,14 @@ html, body {
   background: var(--bg-panel);
   border-left: 1px solid var(--border-dim);
   overflow-y: auto;
-  display: flex;
+  display: none; /* Hide element by default */
   flex-direction: column;
 }
-/* Inspector tab bar */
+#app.show-sidebar #inspector {
+  display: flex; 
+}
 #inspector-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border-dim);
+  display: none; 
 }
 .itab {
   flex: 1;

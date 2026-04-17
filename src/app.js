@@ -1018,12 +1018,11 @@ function updateInspector() {
       // Show the jump button and wire it up to switch tabs
       jumpBtn.style.display = 'block';
       jumpBtn.onclick = () => {
-        // Set this event as active so it highlights
         STATE.activeEventId = wp.eventId; 
         renderEventsPanel();
         
-        // Programmatically click the Events tab to switch views
-        document.querySelector('.itab[data-tab="events"]').click();
+        // Programmatically trigger the Ribbon Events button to open the sidebar
+        document.getElementById('btn-menu-events').click();
       };
     } else {
       eventDisplayEl.innerHTML = '<span style="color: var(--text-dim); font-size: 15px;">No event anchored</span>';
@@ -1049,6 +1048,33 @@ function updateInspector() {
     wpEl.style.display      = 'none';
     edgeEl.style.display    = 'none';
   }
+
+  // ===== NEW VISIBILITY LOGIC =====
+  const hasSelection = STATE.selectedWpId !== null || STATE.selectedEdgeId !== null;
+  const app = document.getElementById('app');
+  
+  if (hasSelection) {
+    // Force open sidebar and switch to 'props'
+    app.classList.add('show-sidebar');
+    document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'props'));
+    document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-props'));
+    
+    // Deactivate the Events ribbon button
+    const eventsBtn = document.getElementById('btn-menu-events');
+    if (eventsBtn) eventsBtn.classList.remove('active');
+    
+  } else {
+    // Nothing selected. If we were currently looking at 'props', close the sidebar.
+    // (If we were looking at 'Events', it remains open).
+    const propsActive = document.querySelector('.itab[data-tab="props"]').classList.contains('active');
+    if (propsActive) {
+       app.classList.remove('show-sidebar');
+    }
+  }
+  
+  // Trigger a canvas resize to utilize the new space
+  requestAnimationFrame(resizeCanvas);
+
 }
 
 function escapeHTML(str) {
@@ -2018,6 +2044,35 @@ ribbonTabs.forEach(tab => {
     // We must resize the canvas to prevent the image from stretching/squishing.
     requestAnimationFrame(resizeCanvas);
   });
+});
+
+// ── Ribbon 'Events' Sidebar Toggle ─────────────────────────────────────────
+document.getElementById('btn-menu-events').addEventListener('click', (e) => {
+  const app = document.getElementById('app');
+  const eventsTabActive = document.querySelector('.itab[data-tab="events"]').classList.contains('active');
+  
+  if (app.classList.contains('show-sidebar') && eventsTabActive) {
+    // Toggle OFF: Close sidebar and remove highlight
+    app.classList.remove('show-sidebar');
+    e.target.classList.remove('active');
+  } else {
+    // Toggle ON: Open sidebar and highlight button
+    app.classList.add('show-sidebar');
+    e.target.classList.add('active');
+    
+    // Switch internal hidden tabs to 'events'
+    document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'events'));
+    document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-events'));
+    
+    // Clear canvas selection to enforce mutual exclusivity
+    STATE.selectedWpId = null;
+    STATE.selectedEdgeId = null;
+    updateInspector();
+    scheduleRender();
+  }
+  
+  // Resize the canvas to fill the new space
+  requestAnimationFrame(resizeCanvas);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

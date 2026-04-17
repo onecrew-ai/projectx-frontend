@@ -42,10 +42,20 @@
     <div class="logo">ProjectX<span> // Configurator</span></div>
     <div class="header-divider"></div>
 
+    <div class="form-group">
+      <input id="project-name-display" type="text" value="untitled_project" class="form-input" />
+    </div>
+
     <nav class="ribbon-tabs">
+      <div class="header-divider"></div>
       <button class="ribbon-tab" data-target="ribbon-file">File</button>
+      <div class="header-divider"></div>
       <button class="ribbon-tab" data-target="ribbon-project">Project</button>
+      <div class="header-divider"></div>
       <button class="ribbon-tab" data-target="ribbon-graph">Graph</button>
+      <div class="header-divider"></div>
+      <button class="ribbon-tab" id="btn-menu-events">Events</button>
+      <div class="header-divider"></div>
     </nav>
 
     <div class="header-spacer"></div>
@@ -66,10 +76,6 @@
     </div>
 
     <div class="ribbon-panel" id="ribbon-project">
-      <div class="form-group">
-        <label class="form-label">Project Name</label>
-        <input id="project-name-display" type="text" value="untitled_project" class="form-input" style="width: 180px;" />
-      </div>
       <div class="form-group">
         <label class="form-label">Bot Type</label>
         <select class="form-select" id="meta-bot-type">
