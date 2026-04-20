@@ -264,6 +264,48 @@ function fitView() {
   scheduleRender();
 }
 
+/** Auto-pans the canvas so the selected item is never hidden behind the sidebars */
+function ensureSelectionVisible() {
+  let targetWx = null;
+  let targetWy = null;
+
+  // Find the world coordinates of the selected waypoint or edge midpoint
+  if (STATE.selectedWpId !== null) {
+    const wp = STATE.waypoints.get(STATE.selectedWpId);
+    if (wp) {
+      targetWx = wp.x;
+      targetWy = wp.y;
+    }
+  } else if (STATE.selectedEdgeId !== null) {
+    const edge = STATE.edges.get(STATE.selectedEdgeId);
+    if (edge) {
+      const w1 = STATE.waypoints.get(edge.from);
+      const w2 = STATE.waypoints.get(edge.to);
+      if (w1 && w2) {
+        targetWx = (w1.x + w2.x) / 2;
+        targetWy = (w1.y + w2.y) / 2;
+      }
+    }
+  }
+
+  // If we have a target, check if it's covered by the new canvas boundaries
+  if (targetWx !== null && targetWy !== null) {
+    // Calculate current canvas position
+    const cx = targetWx * STATE.view.zoom + STATE.view.panX;
+    
+    const rightMargin = 80; // Keep it at least 80px away from the inspector
+    const leftMargin = 80;  // Keep it at least 80px away from the left sidebar
+    
+    if (cx > canvas.width - rightMargin) {
+      // Point is too far right (covered by inspector). Push map left!
+      STATE.view.panX -= (cx - (canvas.width - rightMargin));
+    } else if (cx < leftMargin) {
+      // Point is too far left. Push map right!
+      STATE.view.panX += (leftMargin - cx);
+    }
+  }
+}
+
 function updateZoomLabel() {
   const pct = Math.round(STATE.view.zoom * 100);
   document.getElementById('zoom-label').textContent  = pct + '%';
@@ -746,6 +788,7 @@ function createDensePath(wx1, wy1, wx2, wy2) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Set the active tool and update UI state */
+let _modeIndicatorTimer = null; // Timer for fading out the indicator
 function setTool(toolName) {
   STATE.currentTool  = toolName;
   STATE.densePath.p1  = null;
@@ -772,9 +815,27 @@ function setTool(toolName) {
   };
   document.getElementById('status-mode').textContent = labels[toolName] || toolName.toUpperCase();
 
-  // Dense mode banner
-  document.getElementById('dense-mode-indicator').style.display =
-    toolName === 'dense' ? 'block' : 'none';
+  // Dynamic Mode Indicator Banner
+  const indicator = document.getElementById('mode-indicator');
+  const modeMessages = {
+    select: '↖ SELECT — Click elements to inspect, drag waypoints to move',
+    pan:    '✥ PAN — Click and drag to move the map viewport',
+    dense:  '⋯ WAYPOINTS — Click P1 then P2 to generate an equidistant path',
+    event:  '◎ EVENT — Click a waypoint to anchor the currently active event'
+  };
+
+  // Update text
+  indicator.textContent = modeMessages[toolName] || '';
+  indicator.className = 'mode-cyan show';
+
+  // Clear any existing timer so it doesn't glitch if you switch tools rapidly
+  if (_modeIndicatorTimer) clearTimeout(_modeIndicatorTimer);
+  
+  // Set a new timer to fade it out after 3 seconds (3000ms)
+  _modeIndicatorTimer = setTimeout(() => {
+    indicator.classList.remove('show');
+  }, 3000);
+  
 }
 
 // ── Canvas mouse event handlers ───────────────────────────────────────────────
@@ -813,6 +874,17 @@ canvas.addEventListener('mousedown', e => {
 canvas.addEventListener('mouseleave', () => {
   STATE.hover.wx = null;
   STATE.hover.wy = null;
+  
+  // Force drop any active drags if the cursor leaves the canvas or gets covered
+  if (STATE.panDrag.active) { 
+    STATE.panDrag.active = false; 
+    canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; 
+  }
+  if (STATE.drag.active) { 
+    STATE.drag.active = false; 
+    updateInspector(); 
+  }
+  
   if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
 });
 
@@ -843,7 +915,7 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
-canvas.addEventListener('mouseup', e => {
+window.addEventListener('mouseup', e => {
   if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
   if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); }
 });
@@ -1007,7 +1079,6 @@ function updateInspector() {
 
     // Render assigned event
     const eventDisplayEl = document.getElementById('wp-event-display');
-    const jumpBtn = document.getElementById('btn-jump-event');
 
     if (wp.eventId && STATE.events.has(wp.eventId)) {
       const evt = STATE.events.get(wp.eventId);
@@ -1015,18 +1086,8 @@ function updateInspector() {
       // Display the event name with a visual indicator
       eventDisplayEl.innerHTML = `<span style="color: var(--accent-amber); font-size:15px;">◎</span> <span style="font-size: 15px; vertical-align: middle;">${escapeHTML(evt.name)}</span>`;
       
-      // Show the jump button and wire it up to switch tabs
-      jumpBtn.style.display = 'block';
-      jumpBtn.onclick = () => {
-        STATE.activeEventId = wp.eventId; 
-        renderEventsPanel();
-        
-        // Programmatically trigger the Ribbon Events button to open the sidebar
-        document.getElementById('btn-menu-events').click();
-      };
     } else {
       eventDisplayEl.innerHTML = '<span style="color: var(--text-dim); font-size: 15px;">No event anchored</span>';
-      jumpBtn.style.display = 'none';
     }
 
   } else if (STATE.selectedEdgeId !== null) {
@@ -1072,8 +1133,15 @@ function updateInspector() {
     }
   }
   
-  // Trigger a canvas resize to utilize the new space
-  requestAnimationFrame(resizeCanvas);
+  // Trigger a canvas resize, then auto-pan if the sidebar covered the selection
+  requestAnimationFrame(() => {
+    resizeCanvas(); // First, snap the canvas to its new smaller width
+    
+    if (hasSelection) {
+      ensureSelectionVisible(); // Check if the point got covered and pan if needed
+      scheduleRender(); // Re-render the map in its new position
+    }
+  });
 
 }
 
@@ -1934,10 +2002,17 @@ document.getElementById('meta-description').addEventListener('input', e => { STA
 
 // ── Toast notification helper ─────────────────────────────────────────────
 let _toastTimer = null;
-function showToast(msg) {
+
+// The 'type' parameter defaults to 'cyan' if you don't provide one
+function showToast(msg, type = 'cyan') {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.classList.add('show');
+  
+  // Wipe out any previous color classes, then apply the new ones
+  el.className = ''; 
+  el.classList.add('show', `toast-${type}`);
+  
+  // Reset the hide timer
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
@@ -2107,8 +2182,3 @@ setTimeout(() => {
 resizeCanvas();
 setTool('select');
 renderEventsPanel();
-
-// Show a welcome message in the toast
-setTimeout(() => {
-  showToast('ProjectX Configurator ready — 1/2/3/4 for tools');
-}, 600);
