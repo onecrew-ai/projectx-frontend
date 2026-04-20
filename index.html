@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ProjectX</title>
+  <title>Sysmic</title>
 
   <!-- =====================================================================
        FONTS: "Share Tech Mono" for monospace data readouts,
@@ -27,7 +27,7 @@
 <body>
 
 <div id="splash-screen">
-  <div class="logo giant-logo">ProjectX<span> // Configurator</span></div>
+  <div class="logo giant-logo">Sysmic<span> // Planner</span></div>
 </div>
 
 <!-- =========================================================================
@@ -39,24 +39,13 @@
        HEADER
        ====================================================================== -->
   <header id="header">
-    <div class="logo">ProjectX<span> // Configurator</span></div>
+    <button id="btn-sidebar-toggle" class="hbtn" style="padding: 4px 10px; border: none; font-size: 24px; box-shadow: none; margin-right: 8px;">☰</button>
+    <div class="logo">Sysmic<span> // Planner</span></div>
     <div class="header-divider"></div>
 
     <div class="form-group">
       <input id="project-name-display" type="text" value="untitled_project" class="form-input" />
     </div>
-
-    <nav class="ribbon-tabs">
-      <div class="header-divider"></div>
-      <button class="ribbon-tab" data-target="ribbon-file">File</button>
-      <div class="header-divider"></div>
-      <button class="ribbon-tab" data-target="ribbon-project">Project</button>
-      <div class="header-divider"></div>
-      <button class="ribbon-tab" data-target="ribbon-graph">Graph</button>
-      <div class="header-divider"></div>
-      <button class="ribbon-tab" id="btn-menu-events">Events</button>
-      <div class="header-divider"></div>
-    </nav>
 
     <div class="header-spacer"></div>
 
@@ -65,70 +54,83 @@
     </div>
   </header>
 
-  <div id="ribbon-container">
-    
-    <div class="ribbon-panel" id="ribbon-file">
-      <button class="hbtn" id="btn-import-db">📂 Import Database</button>
-      <div class="ribbon-divider-v"></div>
-      <button class="hbtn" id="btn-export-db">💾 Export Database</button>
-      <button class="hbtn" id="btn-export-grid">💾 Export Occupancy Grid</button>
-      <div class="ribbon-divider-v"></div>
-      <button class="hbtn danger" id="btn-clear">✕ Clear Database</button>
+  <aside id="left-sidebar">
+    <div class="sidebar-nav">
+      <button class="side-tab" data-target="panel-file">
+        <span class="icon">📁</span><span class="label">File</span>
+      </button>
+      <button class="side-tab" data-target="panel-project">
+        <span class="icon">⚙️</span><span class="label">Project</span>
+      </button>
+      <button class="side-tab" data-target="panel-graph">
+        <span class="icon">🗺️</span><span class="label">Graph</span>
+      </button>
+      <button class="side-tab" id="btn-side-events">
+        <span class="icon">◎</span><span class="label">Events</span>
+      </button>
     </div>
 
-    <div class="ribbon-panel" id="ribbon-project">
-      <div class="form-group">
-        <label class="form-label">Bot Type</label>
-        <select class="form-select" id="meta-bot-type">
-          <option value="R1">R1</option>
-          <option value="R2">R2</option>
-        </select>
+    <div class="sidebar-content">
+      
+      <div class="side-panel" id="panel-file">
+        <button class="hbtn" id="btn-import-db">📂 Import Database</button>
+        <button class="hbtn" id="btn-export-db">💾 Export Database</button>
+        <button class="hbtn" id="btn-export-grid">💾 Export Grid</button>
+        <button class="hbtn danger" id="btn-clear">✕ Clear Database</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Model Type</label>
-        <select class="form-select" id="meta-model-type">
-          <option value="hospitality">hospitality</option>
-          <option value="kiosk">kiosk</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description (Optional)</label>
-        <input type="text" class="form-input" id="meta-description" placeholder="Description..." style="width: 250px;" />
-      </div>
-    </div>
 
-    <div class="ribbon-panel" id="ribbon-graph">
-      <div id="map-import-zone" title="Click to import map files" style="margin: 0; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
-        <div class="import-icon" style="font-size: 20px;">🗺</div>
-        <div style="text-align: left;">
-          <p style="margin:0;">Import <span>.pgm</span> + <span>.yaml</span></p>
-          <p id="map-import-status" style="margin:0; font-size:10px; color: var(--text-dim);">No map loaded</p>
+      <div class="side-panel" id="panel-project">
+        <div class="form-group">
+          <label class="form-label">Project Name</label>
+          <input id="project-name-display" type="text" value="untitled_project" class="form-input" />
         </div>
-        <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
+        <div class="form-group">
+          <label class="form-label">Bot Type</label>
+          <select class="form-select" id="meta-bot-type"><option value="R1">R1</option><option value="R2">R2</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Model Type</label>
+          <select class="form-select" id="meta-model-type"><option value="hospitality">hospitality</option><option value="kiosk">kiosk</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="meta-description" placeholder="Description..."></textarea>
+        </div>
+      </div>
+
+      <div class="side-panel" id="panel-graph">
+        <div id="map-import-zone" title="Click to import map files">
+          <div class="import-icon">🗺️</div>
+          <p>Import <span>.pgm</span> + <span>.yaml</span></p>
+          <p id="map-import-status" style="font-size:12px;">No map loaded</p>
+          <input type="file" id="map-files-selector" accept=".pgm, .yml, .yaml" multiple style="display:none;" />
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+          <div class="form-group"><label class="form-label">Origin X</label><input type="text" class="form-input" id="map-origin-x" value="0.00" readonly style="opacity: 0.7;" /></div>
+          <div class="form-group"><label class="form-label">Origin Y</label><input type="text" class="form-input" id="map-origin-y" value="0.00" readonly style="opacity: 0.7;" /></div>
+          <div class="form-group"><label class="form-label">Yaw</label><input type="text" class="form-input" id="map-origin-yaw" value="0.00" readonly style="opacity: 0.7;" /></div>
+          <div class="form-group"><label class="form-label">Resolution</label><input type="text" class="form-input" id="map-resolution" value="0.05" readonly style="opacity: 0.7;" /></div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-dim); margin: 8px 0;"></div>
+
+        <div class="form-group">
+          <label class="form-label">Direction</label>
+          <select class="form-select" id="default-direction">
+            <option value="bidirectional">↔ Bidirectional</option>
+            <option value="forward_only">→ Forward</option>
+            <option value="reverse_only">← Reverse</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group"><label class="form-label">Speed</label><input type="number" class="form-input" id="default-speed" value="0.5" step="0.1" /></div>
+          <div class="form-group"><label class="form-label">Lane</label><input type="number" class="form-input" id="default-lane-width" value="0.8" step="0.1" /></div>
+        </div>
       </div>
       
-      <div class="ribbon-divider-v"></div>
-      
-      <div class="form-group"><label class="form-label">Res (m/px)</label><input type="text" class="form-input" id="map-resolution" value="0.05" readonly style="width: 70px; opacity: 0.7;" /></div>
-      <div class="form-group"><label class="form-label">Org X</label><input type="text" class="form-input" id="map-origin-x" value="0.00" readonly style="width: 70px; opacity: 0.7;" /></div>
-      <div class="form-group"><label class="form-label">Org Y</label><input type="text" class="form-input" id="map-origin-y" value="0.00" readonly style="width: 70px; opacity: 0.7;" /></div>
-      <div class="form-group"><label class="form-label">Yaw</label><input type="text" class="form-input" id="map-origin-yaw" value="0.00" readonly style="width: 70px; opacity: 0.7;" /></div>
-
-      <div class="ribbon-divider-v"></div>
-
-      <div class="form-group">
-        <label class="form-label">Default Direction</label>
-        <select class="form-select" id="default-direction">
-          <option value="bidirectional">↔ Bidirectional</option>
-          <option value="forward_only">→ Forward Only</option>
-          <option value="reverse_only">← Reverse Only</option>
-        </select>
-      </div>
-      <div class="form-group"><label class="form-label">Speed</label><input type="number" class="form-input" id="default-speed" value="0.5" step="0.1" style="width: 60px;" /></div>
-      <div class="form-group"><label class="form-label">Lane</label><input type="number" class="form-input" id="default-lane-width" value="0.8" step="0.1" style="width: 60px;" /></div>
     </div>
-
-  </div>
+  </aside>
 
   <!-- ======================================================================
        CANVAS WRAPPER (Main workspace)

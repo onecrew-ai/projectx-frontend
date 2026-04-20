@@ -2014,64 +2014,69 @@ wrapper.addEventListener('drop', async e => {
   }
 });
 
-// ── Ribbon Toolbar Logic ───────────────────────────────────────────────────
-const ribbonContainer = document.getElementById('ribbon-container');
-const ribbonTabs = document.querySelectorAll('.ribbon-tab[data-target]');
-const ribbonPanels = document.querySelectorAll('.ribbon-panel');
+// ── Gemini-Style Sidebar Logic ─────────────────────────────────────────────
+const btnSidebarToggle = document.getElementById('btn-sidebar-toggle');
+const app = document.getElementById('app');
 
-ribbonTabs.forEach(tab => {
+// Hamburger Menu Toggle
+btnSidebarToggle.addEventListener('click', () => {
+  // Toggle the class and store whether it is now expanded or collapsed
+  const isExpanded = app.classList.toggle('sidebar-expanded');
+  
+  // If we just collapsed the sidebar, clear the active highlights and panels
+  if (!isExpanded) {
+    sideTabs.forEach(t => t.classList.remove('active'));
+    sidePanels.forEach(p => p.classList.remove('active'));
+  }
+  
+  // Wait for CSS transition to finish before snapping canvas resize
+  setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
+});
+
+// Left Sidebar Tab Switching
+const sideTabs = document.querySelectorAll('.side-tab[data-target]');
+const sidePanels = document.querySelectorAll('.side-panel');
+
+sideTabs.forEach(tab => {
   tab.addEventListener('click', () => {
-    const targetId = tab.getAttribute('data-target');
-    const targetPanel = document.getElementById(targetId);
-    
-    // If the clicked tab is already active, close the ribbon
-    if (tab.classList.contains('active')) {
-      tab.classList.remove('active');
-      ribbonContainer.classList.remove('show');
-      targetPanel.classList.remove('active');
-    } else {
-      // Deactivate all tabs and panels
-      ribbonTabs.forEach(t => t.classList.remove('active'));
-      ribbonPanels.forEach(p => p.classList.remove('active'));
-      
-      // Activate the clicked one
-      tab.classList.add('active');
-      targetPanel.classList.add('active');
-      ribbonContainer.classList.add('show');
+    // Auto-expand the sidebar if it's currently collapsed
+    if (!app.classList.contains('sidebar-expanded')) {
+      app.classList.add('sidebar-expanded');
+      setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
     }
+
+    // Deactivate all, activate clicked
+    sideTabs.forEach(t => t.classList.remove('active'));
+    sidePanels.forEach(p => p.classList.remove('active'));
     
-    // CRITICAL: The ribbon pushes the canvas down when it opens. 
-    // We must resize the canvas to prevent the image from stretching/squishing.
-    requestAnimationFrame(resizeCanvas);
+    tab.classList.add('active');
+    const targetPanel = document.getElementById(tab.getAttribute('data-target'));
+    if (targetPanel) targetPanel.classList.add('active');
   });
 });
 
-// ── Ribbon 'Events' Sidebar Toggle ─────────────────────────────────────────
-document.getElementById('btn-menu-events').addEventListener('click', (e) => {
-  const app = document.getElementById('app');
+// "Events" Button Logic (Controls the Right Inspector)
+document.getElementById('btn-side-events').addEventListener('click', (e) => {
   const eventsTabActive = document.querySelector('.itab[data-tab="events"]').classList.contains('active');
   
   if (app.classList.contains('show-sidebar') && eventsTabActive) {
-    // Toggle OFF: Close sidebar and remove highlight
+    // Close right inspector
     app.classList.remove('show-sidebar');
-    e.target.classList.remove('active');
+    e.currentTarget.classList.remove('active');
   } else {
-    // Toggle ON: Open sidebar and highlight button
+    // Open right inspector and switch to Events tab
     app.classList.add('show-sidebar');
-    e.target.classList.add('active');
+    e.currentTarget.classList.add('active');
     
-    // Switch internal hidden tabs to 'events'
     document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'events'));
     document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-events'));
     
-    // Clear canvas selection to enforce mutual exclusivity
+    // Clear selections to enforce mutual exclusivity
     STATE.selectedWpId = null;
     STATE.selectedEdgeId = null;
     updateInspector();
     scheduleRender();
   }
-  
-  // Resize the canvas to fill the new space
   requestAnimationFrame(resizeCanvas);
 });
 
