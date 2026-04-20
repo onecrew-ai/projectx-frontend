@@ -13,6 +13,7 @@
      9. File I/O — YAML, PGM, SQLite
     10. Keyboard Shortcuts
     11. UI Initialization & Event Listeners
+    12. Screen Navigation Logic
    ============================================================================ */
 
 let isRenderScheduled = false;
@@ -79,7 +80,6 @@ const STATE = {
 
   // ── Interaction ───────────────────────────────────────────────────────────
   currentTool: 'select',   // 'select'|'waypoint'|'edge'|'event'|'dense'|'pan'
-  edgeStartWpId: null,     // first click of edge tool
   densePath: { p1: null }, // first point for dense-path mode
 
   // ── Viewport Transform ────────────────────────────────────────────────────
@@ -127,51 +127,11 @@ const canvas  = document.getElementById('main-canvas');
 const ctx     = canvas.getContext('2d');
 const wrapper = document.getElementById('canvas-wrapper');
 
-/** Resize canvas to fill its wrapper container and maintain relative zoom/pan */
+/** Resize canvas to fill its wrapper container */
 function resizeCanvas() {
-  // 1. Capture the old dimensions before we change anything
-  const oldW = canvas.width || wrapper.clientWidth;
-  const oldH = canvas.height || wrapper.clientHeight;
-  
-  // 2. Get the new dimensions
-  const newW = wrapper.clientWidth;
-  const newH = wrapper.clientHeight;
-  
-  // 3. Only apply relative scaling if the app is fully loaded and has a map
-  if (oldW > 0 && oldH > 0 && (STATE.map.image || STATE.waypoints.size > 0)) {
-    // Find the world coordinate currently in the center of the screen
-    const centerWx = (oldW / 2 - STATE.view.panX) / STATE.view.zoom;
-    const centerWy = (oldH / 2 - STATE.view.panY) / STATE.view.zoom;
-    
-    // Calculate the scale ratio (using the smallest dimension to keep it proportional)
-    const ratio = Math.min(newW / oldW, newH / oldH);
-    
-    // Apply ratio to zoom, clamping it between your existing min/max zoom levels
-    STATE.view.zoom = Math.min(8, Math.max(0.05, STATE.view.zoom * ratio));
-    
-    // Recalculate pan to keep that center world coordinate directly in the middle
-    STATE.view.panX = newW / 2 - (centerWx * STATE.view.zoom);
-    STATE.view.panY = newH / 2 - (centerWy * STATE.view.zoom);
-    
-    // Update the UI readout
-    if (typeof updateZoomLabel === 'function') updateZoomLabel();
-  }
-
-  // 4. Apply the new physical dimensions to the canvas
-  canvas.width  = newW;
-  canvas.height = newH;
-  
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
   scheduleRender();
-}
-
-/** Unify mouse and touch coordinate extraction */
-function getPointerCoords(e) {
-  if (e.touches && e.touches.length > 0) {
-    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
-  } else if (e.changedTouches && e.changedTouches.length > 0) {
-    return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
-  }
-  return { clientX: e.clientX, clientY: e.clientY };
 }
 
 /** Convert mouse event coordinates to canvas logical coordinates
@@ -179,10 +139,9 @@ function getPointerCoords(e) {
  */
 function mouseToCanvas(e) {
   const rect = canvas.getBoundingClientRect();
-  const pointer = getPointerCoords(e);
   return {
-    x: pointer.clientX - rect.left,
-    y: pointer.clientY - rect.top,
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
   };
 }
 
@@ -789,9 +748,7 @@ function createDensePath(wx1, wy1, wx2, wy2) {
 /** Set the active tool and update UI state */
 function setTool(toolName) {
   STATE.currentTool  = toolName;
-  STATE.edgeStartWpId = null;
   STATE.densePath.p1  = null;
-  STATE._edgeMousePos = null;
 
   // Update tool button active states
   document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -820,96 +777,82 @@ function setTool(toolName) {
     toolName === 'dense' ? 'block' : 'none';
 }
 
-// ── Unified Pointer & Touch Handlers ──────────────────────────────────────────
+// ── Canvas mouse event handlers ───────────────────────────────────────────────
 
-let initialPinchDist = null;
+canvas.addEventListener('mousedown', e => {
+  const { x, y } = mouseToCanvas(e);
+  const { wx, wy } = canvasToWorld(x, y);
 
-function handlePointerDown(e) {
-  // Prevent browser scrolling while interacting with canvas
-  if (e.type === 'touchstart') e.preventDefault(); 
+  STATE.hover.wx = wx;
+  STATE.hover.wy = wy;
 
-  // Handle Pinch-to-Zoom setup
-  if (e.touches && e.touches.length === 2) {
-    initialPinchDist = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
+  // Middle-button or Space+drag → pan regardless of tool
+  if (e.button === 1) {
+    startPan(x, y);
+    e.preventDefault();
     return;
   }
 
-  const { x, y } = mouseToCanvas(e);
-  const { wx, wy } = canvasToWorld(x, y);
-  STATE.hover.wx = wx; STATE.hover.wy = wy;
-
-  // Middle-click or 2-finger touch for panning
-  if (e.button === 1 || (e.touches && e.touches.length === 2)) {
+  if (STATE.currentTool === 'pan') {
     startPan(x, y);
     return;
   }
 
-  if (STATE.currentTool === 'pan') { startPan(x, y); return; }
-  if (STATE.currentTool === 'select') { handleSelectMouseDown(x, y, wx, wy); }
-  else if (STATE.currentTool === 'event') { handleEventToggle(x, y); }
-  else if (STATE.currentTool === 'dense') {
+  if (STATE.currentTool === 'select') {
+    handleSelectMouseDown(x, y, wx, wy);
+  } else if (STATE.currentTool === 'event') {
+    handleEventToggle(x, y);
+  } else if (STATE.currentTool === 'dense') {
     handleDenseClick(wx, wy);
-    if (STATE.densePath.p1) scheduleRender();
+    if (STATE.densePath.p1) {
+      scheduleRender();
+    }
   }
-}
+});
 
-function handlePointerMove(e) {
-  if (e.type === 'touchmove') e.preventDefault();
+canvas.addEventListener('mouseleave', () => {
+  STATE.hover.wx = null;
+  STATE.hover.wy = null;
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
+});
 
-  // Execute Pinch-to-Zoom
-  if (e.touches && e.touches.length === 2 && initialPinchDist) {
-    const newDist = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-    const zoomFactor = newDist > initialPinchDist ? 1.05 : 0.95;
-    const { x, y } = mouseToCanvas({ clientX: (e.touches[0].clientX + e.touches[1].clientX)/2, clientY: (e.touches[0].clientY + e.touches[1].clientY)/2 });
-    applyZoom(zoomFactor, x, y);
-    initialPinchDist = newDist; // reset for next frame
-    return;
-  }
-
+canvas.addEventListener('mousemove', e => {
   const { x, y } = mouseToCanvas(e);
   const { wx, wy } = canvasToWorld(x, y);
-  STATE.hover.wx = wx; STATE.hover.wy = wy;
 
+  STATE.hover.wx = wx;
+  STATE.hover.wy = wy;
+
+  // Update HUD coordinates (convert pixel coords to real-world metres)
   const { mx, my } = pixelToMetres(wx, wy);
   document.getElementById('hud-x').textContent = mx.toFixed(2);
   document.getElementById('hud-y').textContent = my.toFixed(2);
 
-  if (STATE.panDrag.active) { doPan(x, y); return; }
-  if (STATE.drag.active && STATE.currentTool === 'select') { doDragWaypoint(wx, wy); return; }
-  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
-}
+  if (STATE.panDrag.active) {
+    doPan(x, y);
+    return;
+  }
 
-function handlePointerUp(e) {
-  if (e.touches && e.touches.length < 2) initialPinchDist = null;
-  if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
-  if (STATE.drag.active) { STATE.drag.active = false; updateInspector(); }
-}
+  if (STATE.drag.active && STATE.currentTool === 'select') {
+    doDragWaypoint(wx, wy);
+    return;
+  }
 
-// Bind Mouse Events
-canvas.addEventListener('mousedown', handlePointerDown);
-canvas.addEventListener('mousemove', handlePointerMove);
-canvas.addEventListener('mouseup', handlePointerUp);
-canvas.addEventListener('mouseleave', () => {
-  STATE.hover.wx = null; STATE.hover.wy = null;
-  if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
+  if (STATE.currentTool === 'dense' && STATE.densePath.p1) {
+    scheduleRender();
+  }
 });
+
+canvas.addEventListener('mouseup', e => {
+  if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
+  if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); }
+});
+
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const { x, y } = mouseToCanvas(e);
   applyZoom(e.deltaY < 0 ? 1.15 : 0.87, x, y);
 }, { passive: false });
-
-// Bind Touch Events
-canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
-canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
-canvas.addEventListener('touchend', handlePointerUp);
-canvas.addEventListener('touchcancel', handlePointerUp);
 
 // Prevent context menu on right-click
 canvas.addEventListener('contextmenu', e => { e.preventDefault(); cancelCurrentAction(); });
@@ -1019,8 +962,6 @@ function handleDenseClick(wx, wy) {
 
 /** Cancel whatever in-progress action the user started */
 function cancelCurrentAction() {
-  STATE.edgeStartWpId = null;
-  STATE._edgeMousePos = null;
   STATE.densePath.p1  = null;
   scheduleRender();
 }
@@ -1077,12 +1018,11 @@ function updateInspector() {
       // Show the jump button and wire it up to switch tabs
       jumpBtn.style.display = 'block';
       jumpBtn.onclick = () => {
-        // Set this event as active so it highlights
         STATE.activeEventId = wp.eventId; 
         renderEventsPanel();
         
-        // Programmatically click the Events tab to switch views
-        document.querySelector('.itab[data-tab="events"]').click();
+        // Programmatically trigger the Ribbon Events button to open the sidebar
+        document.getElementById('btn-menu-events').click();
       };
     } else {
       eventDisplayEl.innerHTML = '<span style="color: var(--text-dim); font-size: 15px;">No event anchored</span>';
@@ -1108,6 +1048,33 @@ function updateInspector() {
     wpEl.style.display      = 'none';
     edgeEl.style.display    = 'none';
   }
+
+  // ===== NEW VISIBILITY LOGIC =====
+  const hasSelection = STATE.selectedWpId !== null || STATE.selectedEdgeId !== null;
+  const app = document.getElementById('app');
+  
+  if (hasSelection) {
+    // Force open sidebar and switch to 'props'
+    app.classList.add('show-sidebar');
+    document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'props'));
+    document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-props'));
+    
+    // Deactivate the Events ribbon button
+    const eventsBtn = document.getElementById('btn-menu-events');
+    if (eventsBtn) eventsBtn.classList.remove('active');
+    
+  } else {
+    // Nothing selected. If we were currently looking at 'props', close the sidebar.
+    // (If we were looking at 'Events', it remains open).
+    const propsActive = document.querySelector('.itab[data-tab="props"]').classList.contains('active');
+    if (propsActive) {
+       app.classList.remove('show-sidebar');
+    }
+  }
+  
+  // Trigger a canvas resize to utilize the new space
+  requestAnimationFrame(resizeCanvas);
+
 }
 
 function escapeHTML(str) {
@@ -1731,7 +1698,6 @@ function clearAll(confirm = true) {
   STATE.map.image  = null;
   STATE.map.imageWidth  = 0;
   STATE.map.imageHeight = 0;
-  STATE.edgeStartWpId  = null;
   STATE.densePath.p1   = null;
   document.getElementById('map-import-status').textContent = 'No map loaded';
   renderEventsPanel();
@@ -2047,6 +2013,88 @@ wrapper.addEventListener('drop', async e => {
     }
   }
 });
+
+// ── Ribbon Toolbar Logic ───────────────────────────────────────────────────
+const ribbonContainer = document.getElementById('ribbon-container');
+const ribbonTabs = document.querySelectorAll('.ribbon-tab[data-target]');
+const ribbonPanels = document.querySelectorAll('.ribbon-panel');
+
+ribbonTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const targetId = tab.getAttribute('data-target');
+    const targetPanel = document.getElementById(targetId);
+    
+    // If the clicked tab is already active, close the ribbon
+    if (tab.classList.contains('active')) {
+      tab.classList.remove('active');
+      ribbonContainer.classList.remove('show');
+      targetPanel.classList.remove('active');
+    } else {
+      // Deactivate all tabs and panels
+      ribbonTabs.forEach(t => t.classList.remove('active'));
+      ribbonPanels.forEach(p => p.classList.remove('active'));
+      
+      // Activate the clicked one
+      tab.classList.add('active');
+      targetPanel.classList.add('active');
+      ribbonContainer.classList.add('show');
+    }
+    
+    // CRITICAL: The ribbon pushes the canvas down when it opens. 
+    // We must resize the canvas to prevent the image from stretching/squishing.
+    requestAnimationFrame(resizeCanvas);
+  });
+});
+
+// ── Ribbon 'Events' Sidebar Toggle ─────────────────────────────────────────
+document.getElementById('btn-menu-events').addEventListener('click', (e) => {
+  const app = document.getElementById('app');
+  const eventsTabActive = document.querySelector('.itab[data-tab="events"]').classList.contains('active');
+  
+  if (app.classList.contains('show-sidebar') && eventsTabActive) {
+    // Toggle OFF: Close sidebar and remove highlight
+    app.classList.remove('show-sidebar');
+    e.target.classList.remove('active');
+  } else {
+    // Toggle ON: Open sidebar and highlight button
+    app.classList.add('show-sidebar');
+    e.target.classList.add('active');
+    
+    // Switch internal hidden tabs to 'events'
+    document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'events'));
+    document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-events'));
+    
+    // Clear canvas selection to enforce mutual exclusivity
+    STATE.selectedWpId = null;
+    STATE.selectedEdgeId = null;
+    updateInspector();
+    scheduleRender();
+  }
+  
+  // Resize the canvas to fill the new space
+  requestAnimationFrame(resizeCanvas);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §12 SCREEN NAVIGATION LOGIC
+// ─────────────────────────────────────────────────────────────────────────────
+
+const splashScreen = document.getElementById('splash-screen');
+const appScreen = document.getElementById('app');
+
+// Splash to App Transition
+// Wait 2 seconds, fade out splash, then show the main app grid
+setTimeout(() => {
+  splashScreen.style.opacity = '0';
+  
+  setTimeout(() => {
+    splashScreen.style.display = 'none';
+    appScreen.style.display = 'grid'; // Reveal the main workspace
+    
+    // CRITICAL: Resize canvas now that it's visible to prevent a 0x0 canvas
+    resizeCanvas(); 
+  }, 500); // Waits for the 0.5s CSS opacity transition to finish
+}, 2000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BOOTSTRAP — Initialize canvas and first render
