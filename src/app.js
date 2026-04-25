@@ -37,21 +37,21 @@ const STATE = {
 
   // ── Project Metadata ──────────────────────────────────────────────────────
   project: {
-    name:        'untitled_project',
-    entityName:  '',
-    botType:     'R1',
-    modelType:   'hospitality',
+    name: 'untitled_project',
+    entityName: '',
+    botType: 'R1',
+    modelType: 'hospitality',
     description: ''
   },
 
   // ── Map / Environment ─────────────────────────────────────────────────────
   map: {
-    image:      null,     // HTMLImageElement or null
-    imageWidth:  0,
+    image: null,     // HTMLImageElement or null
+    imageWidth: 0,
     imageHeight: 0,
-    resolution:  0.05,    // meters per pixel (from YAML)
-    originX:     0,       // world X of the map's bottom-left corner (m)
-    originY:     0,       // world Y of the map's bottom-left corner (m)
+    resolution: 0.05,    // meters per pixel (from YAML)
+    originX: 0,       // world X of the map's bottom-left corner (m)
+    originY: 0,       // world Y of the map's bottom-left corner (m)
     // Note: ROS2 convention – origin is [x, y, yaw]
     // We only use x, y here; yaw rotation is not implemented
   },
@@ -61,10 +61,10 @@ const STATE = {
   waypoints: new Map(),
 
   // edges: Map<id:string, {id, from:wpId, to:wpId, direction, speedLimit, laneWidth}>
-  edges:     new Map(),
+  edges: new Map(),
 
   // Counter for unique ID generation
-  nextWpId:   0,
+  nextWpId: 0,
   nextEdgeId: 0,
 
   // ── Spatial Events ────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ const STATE = {
   activeEventId: null,
 
   // ── Selection ─────────────────────────────────────────────────────────────
-  selectedWpId:   null,
+  selectedWpId: null,
   selectedEdgeId: null,
 
   // ── Interaction ───────────────────────────────────────────────────────────
@@ -84,9 +84,9 @@ const STATE = {
 
   // ── Viewport Transform ────────────────────────────────────────────────────
   view: {
-    panX:  0,    // canvas pan offset in CSS pixels
-    panY:  0,
-    zoom:  1.0,  // scale factor
+    panX: 0,    // canvas pan offset in CSS pixels
+    panY: 0,
+    zoom: 1.0,  // scale factor
   },
 
   // ── Hovering ──────────────────────────────────────────────────────────────
@@ -94,17 +94,17 @@ const STATE = {
 
   // ── Dragging ──────────────────────────────────────────────────────────────
   drag: {
-    active:    false,
-    wpId:      null,   // waypoint being dragged
-    startMx:   0,
-    startMy:   0,
-    startWpX:  0,
-    startWpY:  0,
+    active: false,
+    wpId: null,   // waypoint being dragged
+    startMx: 0,
+    startMy: 0,
+    startWpX: 0,
+    startWpY: 0,
   },
 
   // ── Pan drag ──────────────────────────────────────────────────────────────
   panDrag: {
-    active:  false,
+    active: false,
     startMx: 0,
     startMy: 0,
     startPX: 0,
@@ -112,10 +112,10 @@ const STATE = {
   },
 
   // ── Settings ──────────────────────────────────────────────────────────────
-  snapThreshold:   10,   // pixels
-  denseInterval:   10,   // pixels
+  snapThreshold: 10,   // pixels
+  denseInterval: 10,   // pixels
   defaultDirection: 'bidirectional',
-  defaultSpeed:     0.5,
+  defaultSpeed: 0.5,
   defaultLaneWidth: 0.8,
 };
 
@@ -123,13 +123,13 @@ const STATE = {
 // §2  CANVAS & VIEWPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
-const canvas  = document.getElementById('main-canvas');
-const ctx     = canvas.getContext('2d');
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
 const wrapper = document.getElementById('canvas-wrapper');
 
 /** Resize canvas to fill its wrapper container */
 function resizeCanvas() {
-  canvas.width  = wrapper.clientWidth;
+  canvas.width = wrapper.clientWidth;
   canvas.height = wrapper.clientHeight;
   scheduleRender();
 }
@@ -185,9 +185,9 @@ function pixelToMetres(px, py) {
   const myRotated = mxUnrotated * sinYaw + myUnrotated * cosYaw;
 
   // 4. Translate by origin offset
-  return { 
-    mx: mxRotated + originX, 
-    my: myRotated + originY 
+  return {
+    mx: mxRotated + originX,
+    my: myRotated + originY
   };
 }
 
@@ -232,11 +232,11 @@ function applyZoom(factor, screenX, screenY) {
 function fitView() {
   if (STATE.map.image) {
     const pad = 40;
-    const scaleX = (canvas.width  - pad * 2) / STATE.map.imageWidth;
+    const scaleX = (canvas.width - pad * 2) / STATE.map.imageWidth;
     const scaleY = (canvas.height - pad * 2) / STATE.map.imageHeight;
     STATE.view.zoom = Math.min(scaleX, scaleY);
-    STATE.view.panX = pad + (canvas.width  - pad*2 - STATE.map.imageWidth  * STATE.view.zoom) / 2;
-    STATE.view.panY = pad + (canvas.height - pad*2 - STATE.map.imageHeight * STATE.view.zoom) / 2;
+    STATE.view.panX = pad + (canvas.width - pad * 2 - STATE.map.imageWidth * STATE.view.zoom) / 2;
+    STATE.view.panY = pad + (canvas.height - pad * 2 - STATE.map.imageHeight * STATE.view.zoom) / 2;
   } else if (STATE.waypoints.size > 0) {
     // Fit to bounding box of all waypoints
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -248,11 +248,11 @@ function fitView() {
     const dw = maxX - minX || 100;
     const dh = maxY - minY || 100;
     STATE.view.zoom = Math.min(
-      (canvas.width  - pad*2) / dw,
-      (canvas.height - pad*2) / dh,
+      (canvas.width - pad * 2) / dw,
+      (canvas.height - pad * 2) / dh,
       4
     );
-    STATE.view.panX = canvas.width  / 2 - ((minX + maxX) / 2) * STATE.view.zoom;
+    STATE.view.panX = canvas.width / 2 - ((minX + maxX) / 2) * STATE.view.zoom;
     STATE.view.panY = canvas.height / 2 - ((minY + maxY) / 2) * STATE.view.zoom;
   } else {
     // Nothing loaded – reset to identity
@@ -292,10 +292,10 @@ function ensureSelectionVisible() {
   if (targetWx !== null && targetWy !== null) {
     // Calculate current canvas position
     const cx = targetWx * STATE.view.zoom + STATE.view.panX;
-    
+
     const rightMargin = 80; // Keep it at least 80px away from the inspector
     const leftMargin = 80;  // Keep it at least 80px away from the left sidebar
-    
+
     if (cx > canvas.width - rightMargin) {
       // Point is too far right (covered by inspector). Push map left!
       STATE.view.panX -= (cx - (canvas.width - rightMargin));
@@ -308,8 +308,8 @@ function ensureSelectionVisible() {
 
 function updateZoomLabel() {
   const pct = Math.round(STATE.view.zoom * 100);
-  document.getElementById('zoom-label').textContent  = pct + '%';
-  document.getElementById('stat-zoom').textContent   = pct;
+  document.getElementById('zoom-label').textContent = pct + '%';
+  document.getElementById('stat-zoom').textContent = pct;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ function pointToSegmentDist(px, py, ax, ay, bx, by) {
   if (lenSq === 0) return dist(px, py, ax, ay);
   let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
   t = Math.max(0, Math.min(1, t));
-  return dist(px, py, ax + t*dx, ay + t*dy);
+  return dist(px, py, ax + t * dx, ay + t * dy);
 }
 
 /** Check if a line segment (p1→p2) intersects with (p3→p4).
@@ -426,8 +426,8 @@ function render() {
   STATE.waypoints.forEach(wp => renderWaypoint(wp));
 
   // ── Update stats ──────────────────────────────────────────────────────────
-  document.getElementById('stat-wp').textContent    = STATE.waypoints.size;
-  document.getElementById('stat-edges').textContent  = STATE.edges.size;
+  document.getElementById('stat-wp').textContent = STATE.waypoints.size;
+  document.getElementById('stat-edges').textContent = STATE.edges.size;
   document.getElementById('stat-events').textContent = STATE.events.size;
 }
 
@@ -453,7 +453,7 @@ function renderEdge(edge) {
     ? 'rgba(255,170,0,0.18)'
     : 'rgba(0,119,204,0.12)';
   ctx.lineWidth = laneWidthPx;
-  ctx.lineCap   = 'round';
+  ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(ax, ay);
   ctx.lineTo(bx, by);
@@ -463,7 +463,7 @@ function renderEdge(edge) {
   // ── Edge line ─────────────────────────────────────────────────────────────
   ctx.save();
   ctx.strokeStyle = isSelected ? '#ffaa00' : (STATE.selectedWpId ? '#1e5a8a' : '#1e8acc');
-  ctx.lineWidth   = isSelected ? 2 / STATE.view.zoom : 1.5 / STATE.view.zoom;
+  ctx.lineWidth = isSelected ? 2 / STATE.view.zoom : 1.5 / STATE.view.zoom;
   ctx.beginPath();
   ctx.moveTo(ax, ay);
   ctx.lineTo(bx, by);
@@ -485,8 +485,8 @@ function drawArrow(x, y, angle, direction, isSelected) {
   ctx.translate(x, y);
   ctx.rotate(angle);
   ctx.strokeStyle = isSelected ? '#ffaa00' : '#00d4ff';
-  ctx.lineWidth   = 1.5 / STATE.view.zoom;
-  ctx.lineCap     = 'round';
+  ctx.lineWidth = 1.5 / STATE.view.zoom;
+  ctx.lineCap = 'round';
 
   if (direction === 'bidirectional' || direction === 'forward_only') {
     // Forward arrow →
@@ -517,9 +517,9 @@ function renderWaypoint(wp) {
   ctx.save();
   ctx.translate(cx, cy);
 
-  const isSelected   = STATE.selectedWpId === wp.id;
-  const hasEvent     = !!wp.eventId;
-  const radius       = isSelected ? 9 : 7;
+  const isSelected = STATE.selectedWpId === wp.id;
+  const hasEvent = !!wp.eventId;
+  const radius = isSelected ? 9 : 7;
 
   // ── Event glow ring ───────────────────────────────────────────────────────
   if (hasEvent) {
@@ -541,9 +541,9 @@ function renderWaypoint(wp) {
   // ── Main circle ───────────────────────────────────────────────────────────
   ctx.beginPath();
   ctx.arc(0, 0, radius, 0, Math.PI * 2);
-  ctx.fillStyle   = isSelected ? '#ffaa00' : (hasEvent ? '#cc7700' : '#0a1018');
+  ctx.fillStyle = isSelected ? '#ffaa00' : (hasEvent ? '#cc7700' : '#0a1018');
   ctx.strokeStyle = isSelected ? '#ffaa00' : (hasEvent ? '#ffaa00' : '#00d4ff');
-  ctx.lineWidth   = isSelected ? 2 : 1.5;
+  ctx.lineWidth = isSelected ? 2 : 1.5;
   ctx.fill();
   ctx.stroke();
 
@@ -555,7 +555,7 @@ function renderWaypoint(wp) {
 
   // ── ID / label text ───────────────────────────────────────────────────────
   const label = wp.label || `W${wp.id}`;
-  ctx.font      = '20px Share Tech Mono';
+  ctx.font = '20px Share Tech Mono';
   ctx.fillStyle = isSelected ? '#ffaa00' : '#7ab8d4';
   ctx.textAlign = 'center';
   ctx.fillText(label, 0, -(radius + 5));
@@ -566,7 +566,7 @@ function renderWaypoint(wp) {
 /** Render a preview of the dense path before the user clicks P2 (with snapping) */
 function drawDensePreview() {
   const p1 = STATE.densePath.p1;
-  
+
   let p2 = { wx: STATE.hover.wx, wy: STATE.hover.wy };
   let isSnapped = false;
 
@@ -582,10 +582,10 @@ function drawDensePreview() {
   }
 
   ctx.save();
-  
+
   ctx.strokeStyle = isSnapped ? 'rgba(0, 255, 136, 0.8)' : 'rgba(255, 170, 0, 0.6)';
   ctx.lineWidth = 1.5 / STATE.view.zoom;
-  ctx.setLineDash([6 / STATE.view.zoom, 6 / STATE.view.zoom]); 
+  ctx.setLineDash([6 / STATE.view.zoom, 6 / STATE.view.zoom]);
   ctx.beginPath();
   ctx.moveTo(p1.wx, p1.wy);
   ctx.lineTo(p2.wx, p2.wy);
@@ -595,7 +595,7 @@ function drawDensePreview() {
     ctx.beginPath();
     ctx.arc(p2.wx, p2.wy, 12 / STATE.view.zoom, 0, Math.PI * 2);
     ctx.strokeStyle = '#00ff88';
-    ctx.setLineDash([]); 
+    ctx.setLineDash([]);
     ctx.lineWidth = 2 / STATE.view.zoom;
     ctx.stroke();
   }
@@ -604,12 +604,12 @@ function drawDensePreview() {
   const totalDist = dist(p1.wx, p1.wy, p2.wx, p2.wy);
   const intervalWorld = STATE.denseInterval; // No longer divided by zoom!
   const steps = Math.max(1, Math.floor(totalDist / intervalWorld));
-  
+
   const dx = (p2.wx - p1.wx) / steps;
   const dy = (p2.wy - p1.wy) / steps;
 
   ctx.fillStyle = isSnapped ? 'rgba(0, 255, 136, 0.4)' : 'rgba(255, 170, 0, 0.4)';
-  for (let i = 1; i < steps; i++) { 
+  for (let i = 1; i < steps; i++) {
     const x = p1.wx + dx * i;
     const y = p1.wy + dy * i;
     ctx.beginPath();
@@ -640,8 +640,8 @@ function addWaypoint(wx, wy) {
   }
 
   // ── Create new waypoint ───────────────────────────────────────────────────
-  const id  = String(STATE.nextWpId++);
-  const wp  = { id, x: wx, y: wy, label: '', neighbors: new Set(), eventId: null };
+  const id = String(STATE.nextWpId++);
+  const wp = { id, x: wx, y: wy, label: '', neighbors: new Set(), eventId: null };
   STATE.waypoints.set(id, wp);
   return id;
 }
@@ -657,7 +657,7 @@ function addEdge(fromId, toId, overrides = {}) {
   let duplicate = null;
   STATE.edges.forEach(e => {
     if ((e.from === fromId && e.to === toId) ||
-        (e.from === toId   && e.to === fromId)) {
+      (e.from === toId && e.to === fromId)) {
       duplicate = e.id;
     }
   });
@@ -665,11 +665,11 @@ function addEdge(fromId, toId, overrides = {}) {
 
   // ── Check for intersections with existing edges ───────────────────────────
   const waFrom = STATE.waypoints.get(fromId);
-  const waTo   = STATE.waypoints.get(toId);
+  const waTo = STATE.waypoints.get(toId);
   if (!waFrom || !waTo) return null;
 
   const newP1 = { x: waFrom.x, y: waFrom.y };
-  const newP2 = { x: waTo.x,   y: waTo.y   };
+  const newP2 = { x: waTo.x, y: waTo.y };
 
   STATE.edges.forEach((existingEdge) => {
     const ea = STATE.waypoints.get(existingEdge.from);
@@ -682,7 +682,7 @@ function addEdge(fromId, toId, overrides = {}) {
       if (iId !== existingEdge.from && iId !== existingEdge.to) {
         // Split existing edge at intersection
         const oldFrom = existingEdge.from;
-        const oldTo   = existingEdge.to;
+        const oldTo = existingEdge.to;
         STATE.edges.delete(existingEdge.id);
         updateAdjacency(oldFrom, oldTo, 'remove');
         createEdgeRecord(oldFrom, iId, existingEdge);
@@ -700,11 +700,11 @@ function createEdgeRecord(fromId, toId, props = {}) {
   const id = String(STATE.nextEdgeId++);
   const edge = {
     id,
-    from:       fromId,
-    to:         toId,
-    direction:  props.direction  || STATE.defaultDirection,
+    from: fromId,
+    to: toId,
+    direction: props.direction || STATE.defaultDirection,
     speedLimit: props.speedLimit || STATE.defaultSpeed,
-    laneWidth:  props.laneWidth  || STATE.defaultLaneWidth,
+    laneWidth: props.laneWidth || STATE.defaultLaneWidth,
   };
   STATE.edges.set(id, edge);
 
@@ -764,11 +764,11 @@ function deleteEdge(id) {
 function createDensePath(wx1, wy1, wx2, wy2) {
   // Work strictly in world/pixel coordinates
   const totalDist = dist(wx1, wy1, wx2, wy2);
-  
+
   // FIXED: Use the static interval regardless of zoom
-  const intervalWorld = STATE.denseInterval; 
+  const intervalWorld = STATE.denseInterval;
   const steps = Math.max(1, Math.floor(totalDist / intervalWorld));
-  
+
   const dx = (wx2 - wx1) / steps;
   const dy = (wy2 - wy1) / steps;
 
@@ -790,8 +790,8 @@ function createDensePath(wx1, wy1, wx2, wy2) {
 /** Set the active tool and update UI state */
 let _modeIndicatorTimer = null; // Timer for fading out the indicator
 function setTool(toolName) {
-  STATE.currentTool  = toolName;
-  STATE.densePath.p1  = null;
+  STATE.currentTool = toolName;
+  STATE.densePath.p1 = null;
 
   // Update tool button active states
   document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -800,18 +800,18 @@ function setTool(toolName) {
 
   // Update cursor and status bar
   const cursors = {
-    select:  'default',
-    event:   'cell',
-    dense:   'crosshair',
-    pan:     'grab',
+    select: 'default',
+    event: 'cell',
+    dense: 'crosshair',
+    pan: 'grab',
   };
   canvas.style.cursor = cursors[toolName] || 'default';
 
   const labels = {
-    select:  '◈ SELECT',
-    pan:     '✥ PAN',
-    event:   '◎ EVENT',
-    dense:   '⋯ WAYPOINTS',
+    select: '◈ SELECT',
+    pan: '✥ PAN',
+    event: '◎ EVENT',
+    dense: '⋯ WAYPOINTS',
   };
   document.getElementById('status-mode').textContent = labels[toolName] || toolName.toUpperCase();
 
@@ -819,9 +819,9 @@ function setTool(toolName) {
   const indicator = document.getElementById('mode-indicator');
   const modeMessages = {
     select: '↖ SELECT — Click elements to inspect, drag waypoints to move',
-    pan:    '✥ PAN — Click and drag to move the map viewport',
-    dense:  '⋯ WAYPOINTS — Click P1 then P2 to generate an equidistant path',
-    event:  '◎ EVENT — Click a waypoint to anchor the currently active event'
+    pan: '✥ PAN — Click and drag to move the map viewport',
+    dense: '⋯ WAYPOINTS — Click P1 then P2 to generate an equidistant path',
+    event: '◎ EVENT — Click a waypoint to anchor the currently active event'
   };
 
   // Update text
@@ -830,12 +830,12 @@ function setTool(toolName) {
 
   // Clear any existing timer so it doesn't glitch if you switch tools rapidly
   if (_modeIndicatorTimer) clearTimeout(_modeIndicatorTimer);
-  
+
   // Set a new timer to fade it out after 3 seconds (3000ms)
   _modeIndicatorTimer = setTimeout(() => {
     indicator.classList.remove('show');
   }, 3000);
-  
+
 }
 
 // ── Canvas mouse event handlers ───────────────────────────────────────────────
@@ -874,17 +874,17 @@ canvas.addEventListener('mousedown', e => {
 canvas.addEventListener('mouseleave', () => {
   STATE.hover.wx = null;
   STATE.hover.wy = null;
-  
+
   // Force drop any active drags if the cursor leaves the canvas or gets covered
-  if (STATE.panDrag.active) { 
-    STATE.panDrag.active = false; 
-    canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; 
+  if (STATE.panDrag.active) {
+    STATE.panDrag.active = false;
+    canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default';
   }
-  if (STATE.drag.active) { 
-    STATE.drag.active = false; 
-    updateInspector(); 
+  if (STATE.drag.active) {
+    STATE.drag.active = false;
+    updateInspector();
   }
-  
+
   if (STATE.currentTool === 'dense' && STATE.densePath.p1) scheduleRender();
 });
 
@@ -917,7 +917,7 @@ canvas.addEventListener('mousemove', e => {
 
 window.addEventListener('mouseup', e => {
   if (STATE.panDrag.active) { STATE.panDrag.active = false; canvas.style.cursor = STATE.currentTool === 'pan' ? 'grab' : 'default'; }
-  if (STATE.drag.active)     { STATE.drag.active = false; updateInspector(); }
+  if (STATE.drag.active) { STATE.drag.active = false; updateInspector(); }
 });
 
 canvas.addEventListener('wheel', e => {
@@ -937,15 +937,15 @@ function handleSelectMouseDown(cx, cy, wx, wy) {
   if (nearWp && nearWp.distPx <= 14) {
     // Start dragging the waypoint
     const wp = STATE.waypoints.get(nearWp.wpId);
-    STATE.selectedWpId   = nearWp.wpId;
+    STATE.selectedWpId = nearWp.wpId;
     STATE.selectedEdgeId = null;
     STATE.drag = {
-      active:    true,
-      wpId:      nearWp.wpId,
-      startMx:   cx,
-      startMy:   cy,
-      startWpX:  wp.x,
-      startWpY:  wp.y,
+      active: true,
+      wpId: nearWp.wpId,
+      startMx: cx,
+      startMy: cy,
+      startWpX: wp.x,
+      startWpY: wp.y,
     };
     updateInspector();
     scheduleRender();
@@ -956,14 +956,14 @@ function handleSelectMouseDown(cx, cy, wx, wy) {
   const nearEdge = nearestEdge(cx, cy, 10);
   if (nearEdge) {
     STATE.selectedEdgeId = nearEdge.edgeId;
-    STATE.selectedWpId   = null;
+    STATE.selectedWpId = null;
     updateInspector();
     scheduleRender();
     return;
   }
 
   // Clicked empty space: deselect
-  STATE.selectedWpId   = null;
+  STATE.selectedWpId = null;
   STATE.selectedEdgeId = null;
   updateInspector();
   scheduleRender();
@@ -1002,7 +1002,7 @@ function handleEventToggle(cx, cy) {
   }
 
   const wp = STATE.waypoints.get(nearWp.wpId);
-  
+
   // Toggle logic: If it already has this event, remove it. Otherwise, assign it.
   if (wp.eventId === STATE.activeEventId) {
     wp.eventId = null;
@@ -1011,7 +1011,7 @@ function handleEventToggle(cx, cy) {
     wp.eventId = STATE.activeEventId;
     showToast(`Event '${STATE.events.get(STATE.activeEventId).name}' anchored to W${wp.id}`);
   }
-  
+
   renderEventsPanel();
   scheduleRender();
 }
@@ -1034,7 +1034,7 @@ function handleDenseClick(wx, wy) {
 
 /** Cancel whatever in-progress action the user started */
 function cancelCurrentAction() {
-  STATE.densePath.p1  = null;
+  STATE.densePath.p1 = null;
   scheduleRender();
 }
 
@@ -1044,20 +1044,20 @@ function cancelCurrentAction() {
 
 /** Update the properties panel based on current selection */
 function updateInspector() {
-  const nothingEl  = document.getElementById('props-nothing');
-  const wpEl       = document.getElementById('props-waypoint');
-  const edgeEl     = document.getElementById('props-edge');
+  const nothingEl = document.getElementById('props-nothing');
+  const wpEl = document.getElementById('props-waypoint');
+  const edgeEl = document.getElementById('props-edge');
 
   if (STATE.selectedWpId !== null) {
     const wp = STATE.waypoints.get(STATE.selectedWpId);
-    if (!wp) { nothingEl.style.display=''; wpEl.style.display='none'; edgeEl.style.display='none'; return; }
+    if (!wp) { nothingEl.style.display = ''; wpEl.style.display = 'none'; edgeEl.style.display = 'none'; return; }
 
-    nothingEl.style.display  = 'none';
-    wpEl.style.display       = 'block';
-    edgeEl.style.display     = 'none';
+    nothingEl.style.display = 'none';
+    wpEl.style.display = 'block';
+    edgeEl.style.display = 'none';
 
     document.getElementById('wp-id-display').textContent = wp.id;
-    document.getElementById('wp-label-input').value      = wp.label || '';
+    document.getElementById('wp-label-input').value = wp.label || '';
 
     // Convert pixel coords to world metres for display
     const { mx, my } = pixelToMetres(wp.x, wp.y);
@@ -1082,61 +1082,61 @@ function updateInspector() {
 
     if (wp.eventId && STATE.events.has(wp.eventId)) {
       const evt = STATE.events.get(wp.eventId);
-      
+
       // Display the event name with a visual indicator
       eventDisplayEl.innerHTML = `<span style="color: var(--accent-amber); font-size:15px;">◎</span> <span style="font-size: 15px; vertical-align: middle;">${escapeHTML(evt.name)}</span>`;
-      
+
     } else {
       eventDisplayEl.innerHTML = '<span style="color: var(--text-dim); font-size: 15px;">No event anchored</span>';
     }
 
   } else if (STATE.selectedEdgeId !== null) {
     const edge = STATE.edges.get(STATE.selectedEdgeId);
-    if (!edge) { nothingEl.style.display=''; wpEl.style.display='none'; edgeEl.style.display='none'; return; }
+    if (!edge) { nothingEl.style.display = ''; wpEl.style.display = 'none'; edgeEl.style.display = 'none'; return; }
 
-    nothingEl.style.display  = 'none';
-    wpEl.style.display       = 'none';
-    edgeEl.style.display     = 'block';
+    nothingEl.style.display = 'none';
+    wpEl.style.display = 'none';
+    edgeEl.style.display = 'block';
 
-    document.getElementById('edge-id-display').textContent  = edge.id;
-    document.getElementById('edge-endpoints').textContent   = `W${edge.from} → W${edge.to}`;
-    document.getElementById('edge-direction-input').value   = edge.direction;
-    document.getElementById('edge-speed-input').value       = edge.speedLimit;
-    document.getElementById('edge-lanewidth-input').value   = edge.laneWidth;
+    document.getElementById('edge-id-display').textContent = edge.id;
+    document.getElementById('edge-endpoints').textContent = `W${edge.from} → W${edge.to}`;
+    document.getElementById('edge-direction-input').value = edge.direction;
+    document.getElementById('edge-speed-input').value = edge.speedLimit;
+    document.getElementById('edge-lanewidth-input').value = edge.laneWidth;
 
   } else {
     nothingEl.style.display = '';
-    wpEl.style.display      = 'none';
-    edgeEl.style.display    = 'none';
+    wpEl.style.display = 'none';
+    edgeEl.style.display = 'none';
   }
 
   // ===== NEW VISIBILITY LOGIC =====
   const hasSelection = STATE.selectedWpId !== null || STATE.selectedEdgeId !== null;
   const app = document.getElementById('app');
-  
+
   if (hasSelection) {
     // Force open sidebar and switch to 'props'
     app.classList.add('show-sidebar');
     document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'props'));
     document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-props'));
-    
+
     // Deactivate the Events ribbon button
     const eventsBtn = document.getElementById('btn-menu-events');
     if (eventsBtn) eventsBtn.classList.remove('active');
-    
+
   } else {
     // Nothing selected. If we were currently looking at 'props', close the sidebar.
     // (If we were looking at 'Events', it remains open).
     const propsActive = document.querySelector('.itab[data-tab="props"]').classList.contains('active');
     if (propsActive) {
-       app.classList.remove('show-sidebar');
+      app.classList.remove('show-sidebar');
     }
   }
-  
+
   // Trigger a canvas resize, then auto-pan if the sidebar covered the selection
   requestAnimationFrame(() => {
     resizeCanvas(); // First, snap the canvas to its new smaller width
-    
+
     if (hasSelection) {
       ensureSelectionVisible(); // Check if the point got covered and pan if needed
       scheduleRender(); // Re-render the map in its new position
@@ -1147,7 +1147,7 @@ function updateInspector() {
 
 function escapeHTML(str) {
   if (!str) return '';
-  return str.replace(/[&<>'"]/g, 
+  return str.replace(/[&<>'"]/g,
     tag => ({
       '&': '&amp;',
       '<': '&lt;',
@@ -1171,9 +1171,9 @@ document.getElementById('btn-apply-edge').addEventListener('click', () => {
   const edge = STATE.edges.get(STATE.selectedEdgeId);
   if (!edge) return;
 
-  const newDir   = document.getElementById('edge-direction-input').value;
+  const newDir = document.getElementById('edge-direction-input').value;
   const newSpeed = parseFloat(document.getElementById('edge-speed-input').value) || 0.5;
-  const newLane  = parseFloat(document.getElementById('edge-lanewidth-input').value) || 0.8;
+  const newLane = parseFloat(document.getElementById('edge-lanewidth-input').value) || 0.8;
 
   // Update adjacency when direction changes
   const fWp = STATE.waypoints.get(edge.from);
@@ -1183,9 +1183,9 @@ document.getElementById('btn-apply-edge').addEventListener('click', () => {
   if (fWp) fWp.neighbors.delete(edge.to);
   if (tWp) tWp.neighbors.delete(edge.from);
 
-  edge.direction  = newDir;
+  edge.direction = newDir;
   edge.speedLimit = newSpeed;
-  edge.laneWidth  = newLane;
+  edge.laneWidth = newLane;
 
   // Re-apply adjacency with new direction
   if (fWp) fWp.neighbors.add(edge.to);
@@ -1201,11 +1201,11 @@ document.getElementById('btn-apply-edge').addEventListener('click', () => {
 
 /** Supported action types and their parameter labels */
 const ACTION_TYPES = {
-  Dock:   { param: null,         label: 'Dock (no params)' },
-  Wait:   { param: 'seconds',    label: 'Wait (seconds)'   },
-  Speak:  { param: 'text',       label: 'Speak (text)'     },
-  Print:  { param: 'payload',    label: 'Print (payload)'  },
-  Custom: { param: 'logic',      label: 'Custom (script)'  },
+  Dock: { param: null, label: 'Dock (no params)' },
+  Wait: { param: 'seconds', label: 'Wait (seconds)' },
+  Speak: { param: 'text', label: 'Speak (text)' },
+  Print: { param: 'payload', label: 'Print (payload)' },
+  Custom: { param: 'logic', label: 'Custom (script)' },
 };
 
 /** Re-render the entire events list panel */
@@ -1221,7 +1221,7 @@ function renderEventsPanel() {
   if (STATE.events.size === 0) {
     listEl.insertAdjacentHTML('beforeend', `
       <div class="empty-state">
-        <div class="empty-icon">◎</div>
+        <div class="empty-icon"><i class="ph ph-lightning"></i></div>
         No events created yet.<br />Click above to start.
       </div>`);
   }
@@ -1287,7 +1287,7 @@ function renderActionItems(actions, wpId, trig) {
   if (!actions.length) return `<li style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:2px 0;">No actions</li>`;
   return actions.map((a, i) => `
     <li class="action-item">
-      <span style="color:var(--text-dim);min-width:16px;text-align:right;">${i+1}.</span>
+      <span style="color:var(--text-dim);min-width:16px;text-align:right;">${i + 1}.</span>
       <span class="action-type-badge">${a.type}</span>
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.param || ''}</span>
       <button class="action-del" data-wpid="${wpId}" data-trig="${trig}" data-idx="${i}" title="Remove">✕</button>
@@ -1351,8 +1351,8 @@ function parsePgm(buffer) {
     return token;
   }
 
-  const magic  = readToken(); // 'P2' or 'P5'
-  const width  = parseInt(readToken());
+  const magic = readToken(); // 'P2' or 'P5'
+  const width = parseInt(readToken());
   const height = parseInt(readToken());
   const maxVal = parseInt(readToken());
 
@@ -1366,10 +1366,10 @@ function parsePgm(buffer) {
     for (let i = 0; i < width * height; i++) {
       const v = parseInt(readToken());
       const gray = Math.round((v / maxVal) * 255);
-      imgData.data[i*4]   = gray;
-      imgData.data[i*4+1] = gray;
-      imgData.data[i*4+2] = gray;
-      imgData.data[i*4+3] = 255;
+      imgData.data[i * 4] = gray;
+      imgData.data[i * 4 + 1] = gray;
+      imgData.data[i * 4 + 2] = gray;
+      imgData.data[i * 4 + 3] = 255;
     }
   } else if (magic === 'P5') {
     // Binary PGM
@@ -1383,10 +1383,10 @@ function parsePgm(buffer) {
         v = bytes[pos++];
       }
       const gray = Math.round((v / maxVal) * 255);
-      imgData.data[i*4]   = gray;
-      imgData.data[i*4+1] = gray;
-      imgData.data[i*4+2] = gray;
-      imgData.data[i*4+3] = 255;
+      imgData.data[i * 4] = gray;
+      imgData.data[i * 4 + 1] = gray;
+      imgData.data[i * 4 + 2] = gray;
+      imgData.data[i * 4 + 3] = 255;
     }
   } else {
     throw new Error('Unsupported PGM format: ' + magic);
@@ -1399,7 +1399,7 @@ function parsePgm(buffer) {
 function imageDataToImage(imgData) {
   return new Promise(resolve => {
     const offscreen = document.createElement('canvas');
-    offscreen.width  = imgData.width;
+    offscreen.width = imgData.width;
     offscreen.height = imgData.height;
     offscreen.getContext('2d').putImageData(imgData, 0, 0);
     const img = new Image();
@@ -1436,9 +1436,9 @@ async function exportToDb() {
 
   // ── Insert project metadata ────────────────────────────────────────────────
   const meta = {
-    name:        STATE.project.name,
-    bot_type:    STATE.project.botType,
-    model_type:  STATE.project.modelType,
+    name: STATE.project.name,
+    bot_type: STATE.project.botType,
+    model_type: STATE.project.modelType,
     description: STATE.project.description,
   };
   Object.entries(meta).forEach(([k, v]) => {
@@ -1448,10 +1448,10 @@ async function exportToDb() {
   // ── Insert map calibration ─────────────────────────────────────────────────
   const mapM = {
     resolution: String(STATE.map.resolution),
-    origin_x:   String(STATE.map.originX),
-    origin_y:   String(STATE.map.originY),
-    origin_yaw:   String(STATE.map.originYaw),
-    image_width:  String(STATE.map.imageWidth),
+    origin_x: String(STATE.map.originX),
+    origin_y: String(STATE.map.originY),
+    origin_yaw: String(STATE.map.originYaw),
+    image_width: String(STATE.map.imageWidth),
     image_height: String(STATE.map.imageHeight),
   };
 
@@ -1485,15 +1485,15 @@ async function exportToDb() {
       });
     };
     insertActions(evt.onEntry, 'entry');
-    insertActions(evt.onExit,  'exit');
+    insertActions(evt.onExit, 'exit');
   });
 
   // ── Export binary and trigger download ────────────────────────────────────
   const binArray = db.export();
   const blob = new Blob([binArray], { type: 'application/x-sqlite3' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = (STATE.project.name || 'project') + '.db';
   a.click();
   URL.revokeObjectURL(url);
@@ -1509,9 +1509,9 @@ function exportOccupancyGrid() {
   }
 
   // 1. Establish Grid Dimensions
-  const width  = STATE.map.imageWidth  || 1000;
+  const width = STATE.map.imageWidth || 1000;
   const height = STATE.map.imageHeight || 1000;
-  const res    = STATE.map.resolution  || 0.05;
+  const res = STATE.map.resolution || 0.05;
 
   // 2. Setup Offscreen Canvas
   const offCanvas = document.createElement('canvas');
@@ -1542,7 +1542,7 @@ function exportOccupancyGrid() {
 
     // Convert lane width (m) to pixels
     ctx.lineWidth = edge.laneWidth / res;
-    
+
     ctx.beginPath();
     ctx.moveTo(pxA, pyA);
     ctx.lineTo(pxB, pyB);
@@ -1552,10 +1552,10 @@ function exportOccupancyGrid() {
   // 5. Extract Pixel Data
   const imgData = ctx.getImageData(0, 0, width, height).data;
   const pixelArray = new Uint8Array(width * height);
-  
+
   // Canvas data is RGBA. We only need the Red channel since it's grayscale.
   for (let i = 0; i < width * height; i++) {
-    pixelArray[i] = imgData[i * 4]; 
+    pixelArray[i] = imgData[i * 4];
   }
 
   // 6. Build P5 Binary PGM Blob
@@ -1587,7 +1587,7 @@ free_thresh: 0.25
   // Trigger both downloads
   download(finalPgmBlob, 'occupancy_grid.pgm');
   download(yamlBlob, 'occupancy_grid.yaml');
-  
+
   showToast('Occupancy Grid (.pgm + .yaml) exported!');
 }
 
@@ -1605,7 +1605,7 @@ async function importFromDb(file) {
   let db;
   try {
     db = new SQL.Database(new Uint8Array(buffer));
-  } catch(e) {
+  } catch (e) {
     showToast('Failed to open .db — invalid file');
     return;
   }
@@ -1615,7 +1615,7 @@ async function importFromDb(file) {
   for (const t of tables) {
     try {
       db.run(`SELECT 1 FROM ${t} LIMIT 1`);
-    } catch(e) {
+    } catch (e) {
       showToast(`Schema error: missing table "${t}"`);
       db.close();
       return;
@@ -1629,9 +1629,9 @@ async function importFromDb(file) {
   const metaRows = db.exec('SELECT key, value FROM project_meta');
   if (metaRows.length) {
     metaRows[0].values.forEach(([k, v]) => {
-      if (k === 'name')        { STATE.project.name = v; document.getElementById('project-name-display').value = v; }
-      if (k === 'bot_type')    { STATE.project.botType = v; document.getElementById('meta-bot-type').value = v; }
-      if (k === 'model_type')  { STATE.project.modelType = v; document.getElementById('meta-model-type').value = v; }
+      if (k === 'name') { STATE.project.name = v; document.getElementById('project-name-display').value = v; }
+      if (k === 'bot_type') { STATE.project.botType = v; document.getElementById('meta-bot-type').value = v; }
+      if (k === 'model_type') { STATE.project.modelType = v; document.getElementById('meta-model-type').value = v; }
       if (k === 'description') { STATE.project.description = v; document.getElementById('meta-description').value = v; }
     });
   }
@@ -1641,11 +1641,11 @@ async function importFromDb(file) {
   let importedImageDataUrl = null;
   if (mapRows.length) {
     mapRows[0].values.forEach(([k, v]) => {
-      if (k === 'resolution')   { STATE.map.resolution   = parseFloat(v); document.getElementById('map-resolution').value = v; }
-      if (k === 'origin_x')     { STATE.map.originX      = parseFloat(v); document.getElementById('map-origin-x').value = v; }
-      if (k === 'origin_y')     { STATE.map.originY      = parseFloat(v); document.getElementById('map-origin-y').value = v; }
-      if (k === 'origin_yaw')     { STATE.map.originYaw      = parseFloat(v); document.getElementById('map-origin-yaw').value = v; }
-      if (k === 'image_width')  STATE.map.imageWidth  = parseInt(v);
+      if (k === 'resolution') { STATE.map.resolution = parseFloat(v); document.getElementById('map-resolution').value = v; }
+      if (k === 'origin_x') { STATE.map.originX = parseFloat(v); document.getElementById('map-origin-x').value = v; }
+      if (k === 'origin_y') { STATE.map.originY = parseFloat(v); document.getElementById('map-origin-y').value = v; }
+      if (k === 'origin_yaw') { STATE.map.originYaw = parseFloat(v); document.getElementById('map-origin-yaw').value = v; }
+      if (k === 'image_width') STATE.map.imageWidth = parseInt(v);
       if (k === 'image_height') STATE.map.imageHeight = parseInt(v);
       if (k === 'image_data_url') { importedImageDataUrl = v };
     });
@@ -1668,12 +1668,12 @@ async function importFromDb(file) {
     const cols = wpRows[0].columns;
     const idxId = cols.indexOf('id'), idxX = cols.indexOf('x'), idxY = cols.indexOf('y');
     const idxLabel = cols.indexOf('label'), idxEventId = cols.indexOf('event_id');
-    
+
     wpRows[0].values.forEach(row => {
       const eventId = idxEventId > -1 && row[idxEventId] !== '' ? row[idxEventId] : null;
-      STATE.waypoints.set(row[idxId], { 
-        id: row[idxId], x: Number(row[idxX]), y: Number(row[idxY]), 
-        label: row[idxLabel] || '', neighbors: new Set(), eventId 
+      STATE.waypoints.set(row[idxId], {
+        id: row[idxId], x: Number(row[idxX]), y: Number(row[idxY]),
+        label: row[idxLabel] || '', neighbors: new Set(), eventId
       });
       const idNum = parseInt(row[idxId]);
       if (!isNaN(idNum) && idNum >= STATE.nextWpId) STATE.nextWpId = idNum + 1;
@@ -1695,9 +1695,9 @@ async function importFromDb(file) {
     edgeRows[0].values.forEach(([id, from, to, dir, spd, lw]) => {
       STATE.edges.set(id, {
         id, from, to,
-        direction:  dir,
+        direction: dir,
         speedLimit: Number(spd),
-        laneWidth:  Number(lw),
+        laneWidth: Number(lw),
       });
       const idNum = parseInt(id);
       if (!isNaN(idNum) && idNum >= STATE.nextEdgeId) STATE.nextEdgeId = idNum + 1;
@@ -1706,7 +1706,7 @@ async function importFromDb(file) {
 
   // ── Load events (Handles both New and Old schema) ──────────────────────────
   let isNewSchema = false;
-  try { db.run('SELECT 1 FROM event_defs LIMIT 1'); isNewSchema = true; } catch(e) {}
+  try { db.run('SELECT 1 FROM event_defs LIMIT 1'); isNewSchema = true; } catch (e) { }
 
   if (isNewSchema) {
     const defRows = db.exec('SELECT id, name FROM event_defs');
@@ -1742,7 +1742,7 @@ async function importFromDb(file) {
         const arr = trig === 'entry' ? evt.onEntry : evt.onExit;
         arr.push({ type: atype, param: aparam || '' });
       });
-      STATE.nextEventId = STATE.waypoints.size; 
+      STATE.nextEventId = STATE.waypoints.size;
     }
   }
 
@@ -1759,14 +1759,14 @@ function clearAll(confirm = true) {
   STATE.waypoints.clear();
   STATE.edges.clear();
   STATE.events.clear();
-  STATE.selectedWpId   = null;
+  STATE.selectedWpId = null;
   STATE.selectedEdgeId = null;
-  STATE.nextWpId   = 0;
+  STATE.nextWpId = 0;
   STATE.nextEdgeId = 0;
-  STATE.map.image  = null;
-  STATE.map.imageWidth  = 0;
+  STATE.map.image = null;
+  STATE.map.imageWidth = 0;
   STATE.map.imageHeight = 0;
-  STATE.densePath.p1   = null;
+  STATE.densePath.p1 = null;
   document.getElementById('map-import-status').textContent = 'No map loaded';
   renderEventsPanel();
   updateInspector();
@@ -1784,10 +1784,10 @@ document.addEventListener('keydown', e => {
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
   switch (e.key.toLowerCase()) {
-    case '1': setTool('select');   break;
-    case '2': setTool('pan');      break;
-    case '3': setTool('dense');    break;
-    case '4': setTool('event');    break;
+    case '1': setTool('select'); break;
+    case '2': setTool('pan'); break;
+    case '3': setTool('dense'); break;
+    case '4': setTool('event'); break;
     case 'escape': cancelCurrentAction(); break;
     case 'f': fitView(); break;
 
@@ -1829,8 +1829,8 @@ document.querySelectorAll('.itab').forEach(tab => {
 });
 
 // ── Zoom controls ──────────────────────────────────────────────────────────
-document.getElementById('zoom-in') .addEventListener('click', () => applyZoom(1.25, canvas.width/2, canvas.height/2));
-document.getElementById('zoom-out').addEventListener('click', () => applyZoom(0.80, canvas.width/2, canvas.height/2));
+document.getElementById('zoom-in').addEventListener('click', () => applyZoom(1.25, canvas.width / 2, canvas.height / 2));
+document.getElementById('zoom-out').addEventListener('click', () => applyZoom(0.80, canvas.width / 2, canvas.height / 2));
 document.getElementById('zoom-fit').addEventListener('click', fitView);
 
 // ── Header buttons ─────────────────────────────────────────────────────────
@@ -1888,7 +1888,7 @@ document.getElementById('events-list').addEventListener('click', (e) => {
     const trig = e.target.dataset.trigger;
     const type = document.getElementById(`${trig}-type-${evId}`).value;
     const param = document.getElementById(`${trig}-param-${evId}`).value.trim();
-    
+
     const event = STATE.events.get(evId);
     if (event) {
       const array = trig === 'entry' ? event.onEntry : event.onExit;
@@ -1926,7 +1926,7 @@ document.getElementById('map-import-zone').addEventListener('click', () => {
 });
 
 document.getElementById('map-files-selector').addEventListener('change', async event => {
-  const files = Array.from(event.target.files);  
+  const files = Array.from(event.target.files);
   const pgmFile = files.find(f => f.name.toLowerCase().endsWith('.pgm'));
   const yamlFile = files.find(f => f.name.toLowerCase().endsWith('.yml') || f.name.toLowerCase().endsWith('.yaml'));
   if (yamlFile && pgmFile) {
@@ -1952,13 +1952,13 @@ document.getElementById('map-files-selector').addEventListener('change', async e
         STATE.map.originYaw = parsed.originYaw;
         document.getElementById('map-origin-yaw').value = parsed.originYaw;
       }
-      
+
       // ── PGM file input ─────────────────────────────────────────────────────────
-      const buffer  = await pgmFile.arrayBuffer();
+      const buffer = await pgmFile.arrayBuffer();
       const imgData = parsePgm(buffer);
-      const img     = await imageDataToImage(imgData);
-      STATE.map.image       = img;
-      STATE.map.imageWidth  = img.width;
+      const img = await imageDataToImage(imgData);
+      STATE.map.image = img;
+      STATE.map.imageWidth = img.width;
       STATE.map.imageHeight = img.height;
 
       document.getElementById('map-import-status').textContent = `✓ PGM: ${img.width}×${img.height}px | ✓ YAML: ${yamlFile.name}`;
@@ -1970,7 +1970,7 @@ document.getElementById('map-files-selector').addEventListener('change', async e
     }
 
     event.target.value = '';
-    
+
   } else {
     document.getElementById('map-import-status').textContent = "Error: Please select map files together.";
   }
@@ -2007,11 +2007,11 @@ let _toastTimer = null;
 function showToast(msg, type = 'cyan') {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  
+
   // Wipe out any previous color classes, then apply the new ones
-  el.className = ''; 
+  el.className = '';
   el.classList.add('show', `toast-${type}`);
-  
+
   // Reset the hide timer
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
@@ -2072,17 +2072,17 @@ wrapper.addEventListener('drop', async e => {
       document.getElementById('map-import-status').textContent = '✓ YAML: ' + file.name;
       showToast('YAML loaded via drag-drop');
     } else if (file.name.endsWith('.pgm')) {
-      const buffer  = await file.arrayBuffer();
+      const buffer = await file.arrayBuffer();
       try {
         const imgData = parsePgm(buffer);
-        const img     = await imageDataToImage(imgData);
-        STATE.map.image       = img;
-        STATE.map.imageWidth  = img.width;
+        const img = await imageDataToImage(imgData);
+        STATE.map.image = img;
+        STATE.map.imageWidth = img.width;
         STATE.map.imageHeight = img.height;
         document.getElementById('map-import-status').textContent = '✓ PGM: ' + img.width + '×' + img.height;
         showToast('PGM loaded via drag-drop');
         fitView();
-      } catch(err) { showToast('Error: ' + err.message); }
+      } catch (err) { showToast('Error: ' + err.message); }
     } else if (file.name.endsWith('.db')) {
       await importFromDb(file);
     }
@@ -2095,17 +2095,32 @@ const app = document.getElementById('app');
 
 // Hamburger Menu Toggle
 btnSidebarToggle.addEventListener('click', () => {
-  // Toggle the class and store whether it is now expanded or collapsed
-  const isExpanded = app.classList.toggle('sidebar-expanded');
-  
-  // If we just collapsed the sidebar, clear the active highlights and panels
-  if (!isExpanded) {
-    sideTabs.forEach(t => t.classList.remove('active'));
-    sidePanels.forEach(p => p.classList.remove('active'));
+  const isExpanded = app.classList.contains('sidebar-expanded');
+
+  if (isExpanded) {
+    // Check if any panels are open
+    const hasActivePanels = Array.from(document.querySelectorAll('.side-panel')).some(p => p.classList.contains('active'));
+    
+    if (hasActivePanels) {
+      // Close panels first
+      document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('active'));
+      
+      // Wait for panel collapse transition (300ms) before collapsing sidebar
+      setTimeout(() => {
+        app.classList.remove('sidebar-expanded');
+        setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
+      }, 300);
+    } else {
+      // No panels open, just collapse sidebar immediately
+      app.classList.remove('sidebar-expanded');
+      setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
+    }
+  } else {
+    // Expand sidebar
+    app.classList.add('sidebar-expanded');
+    setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
   }
-  
-  // Wait for CSS transition to finish before snapping canvas resize
-  setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
 });
 
 // Left Sidebar Tab Switching
@@ -2114,26 +2129,42 @@ const sidePanels = document.querySelectorAll('.side-panel');
 
 sideTabs.forEach(tab => {
   tab.addEventListener('click', () => {
+    const isExpanded = app.classList.contains('sidebar-expanded');
+    const isActive = tab.classList.contains('active');
+    
     // Auto-expand the sidebar if it's currently collapsed
-    if (!app.classList.contains('sidebar-expanded')) {
+    if (!isExpanded) {
       app.classList.add('sidebar-expanded');
       setTimeout(() => requestAnimationFrame(resizeCanvas), 300);
+      
+      sideTabs.forEach(t => t.classList.remove('active'));
+      sidePanels.forEach(p => p.classList.remove('active'));
+      
+      tab.classList.add('active');
+      const targetPanel = document.getElementById(tab.getAttribute('data-target'));
+      if (targetPanel) targetPanel.classList.add('active');
+    } else {
+      // Sidebar is expanded: toggle the active state
+      if (isActive) {
+        tab.classList.remove('active');
+        const targetPanel = document.getElementById(tab.getAttribute('data-target'));
+        if (targetPanel) targetPanel.classList.remove('active');
+      } else {
+        sideTabs.forEach(t => t.classList.remove('active'));
+        sidePanels.forEach(p => p.classList.remove('active'));
+        
+        tab.classList.add('active');
+        const targetPanel = document.getElementById(tab.getAttribute('data-target'));
+        if (targetPanel) targetPanel.classList.add('active');
+      }
     }
-
-    // Deactivate all, activate clicked
-    sideTabs.forEach(t => t.classList.remove('active'));
-    sidePanels.forEach(p => p.classList.remove('active'));
-    
-    tab.classList.add('active');
-    const targetPanel = document.getElementById(tab.getAttribute('data-target'));
-    if (targetPanel) targetPanel.classList.add('active');
   });
 });
 
 // "Events" Button Logic (Controls the Right Inspector)
 document.getElementById('btn-side-events').addEventListener('click', (e) => {
   const eventsTabActive = document.querySelector('.itab[data-tab="events"]').classList.contains('active');
-  
+
   if (app.classList.contains('show-sidebar') && eventsTabActive) {
     // Close right inspector
     app.classList.remove('show-sidebar');
@@ -2142,10 +2173,10 @@ document.getElementById('btn-side-events').addEventListener('click', (e) => {
     // Open right inspector and switch to Events tab
     app.classList.add('show-sidebar');
     e.currentTarget.classList.add('active');
-    
+
     document.querySelectorAll('.itab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'events'));
     document.querySelectorAll('.itab-content').forEach(c => c.classList.toggle('visible', c.id === 'tab-events'));
-    
+
     // Clear selections to enforce mutual exclusivity
     STATE.selectedWpId = null;
     STATE.selectedEdgeId = null;
@@ -2166,13 +2197,13 @@ const appScreen = document.getElementById('app');
 // Wait 2 seconds, fade out splash, then show the main app grid
 setTimeout(() => {
   splashScreen.style.opacity = '0';
-  
+
   setTimeout(() => {
     splashScreen.style.display = 'none';
     appScreen.style.display = 'grid'; // Reveal the main workspace
-    
+
     // CRITICAL: Resize canvas now that it's visible to prevent a 0x0 canvas
-    resizeCanvas(); 
+    resizeCanvas();
   }, 500); // Waits for the 0.5s CSS opacity transition to finish
 }, 2000);
 
